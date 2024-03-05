@@ -61,13 +61,15 @@ undone_lines = []  # Store the undone lines for redo functionality
 # Global variable to store points and the flag for dragging
 points = []
 dragging = False # Flag to track if mouse was dragging to draw
+leave_help = False
 
 # Callback function to capture mouse events
 def draw_line(event, x, y, flags, param):
-    global points, image, temp_image, dragging, lines, undone_lines
+    global points, image, temp_image, dragging, lines, undone_lines, leave_help
 
     if event == cv2.EVENT_LBUTTONDOWN:
         dragging = True
+        leave_help = True
         points = [(x, y)]  # Reset points list with the new start
 
     elif event == cv2.EVENT_MOUSEMOVE and dragging:
@@ -111,43 +113,46 @@ while True:
             cv2.line(image, line[0], line[1], color, thickness=thickness)
             cv2.imshow('image', image)
     elif k == ord('h'):  # Show/hide instructions
-        # display_instructions()
-        temp_image = image.copy()
+        instruction_image = image.copy()
+        num_frame = 25
         instructions = [
             "Instructions:",
             "Left click and drag to draw a line.",
             "Press 'u' to undo the last line.",
             "Press 'r' to redo the last undone line.",
             "Press 's' to save and leave.",
-            "Press 'h' to hide/show this help."
+            "Press 'h' to show this help.",
+            "Press left mouse to start drawing."
         ]
         y0, dy = 30, 30  # Initial position and line spacing
         for i, line in enumerate(instructions):
-            if dragging:
-                break
             y = y0 + i * dy
-            cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-        cv2.imshow('image', temp_image)
-        cv2.waitKey(1000)  
-        
-        # Fade out effect
-        num_step=25
-        for alpha in np.linspace(1, 0, num=num_step):  # Generate 10 steps from 1 to 0
-            if dragging:
-                break
-            faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
-            cv2.imshow('image', faded_image)
-            cv2.waitKey(1000//num_step)  # Wait for 100 ms between frames
-    
-    elif k == ord('s'):  # Redo the last undone line
+            cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        cv2.imshow('image', instruction_image)
+
+    elif k == ord('s'):  # Save
         break
+    
     else: # exception handeling
         temp_image = image.copy()
+        leave_help = False
         # Display the description on the temporary image
         cv2.putText(temp_image, "Press 'u' to undo, 's' to save and leave.", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         cv2.imshow('image', temp_image)
+        if leave_help:
+            break
+        cv2.waitKey(2000)  
+        # Fade out effect
+        for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
+            if leave_help:
+                break
+            faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
+            cv2.imshow('image', faded_image)
+            if cv2.waitKey(1000//num_frame) != -1:  # Wait for 100 ms between frames
+                break
 
+        cv2.imshow('image', image)
 
 cv2.destroyAllWindows()
 
