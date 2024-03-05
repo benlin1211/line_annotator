@@ -6,6 +6,14 @@ import os
 image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
 
 image = cv2.imread(image_path)
+original_size = image.shape[:2]  # Original size (height, width)
+
+# Desired display size for easier annotation
+scale_factor = 2.0
+new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_factor))
+
+# Resize image for easier annotation
+image = cv2.resize(image, new_size)
 backup_image = image.copy()  # Backup image for undo functionality
 temp_image = image.copy()  # Temporary image for showing the line preview
 
@@ -71,6 +79,9 @@ while True:
         break
 
 cv2.destroyAllWindows()
+
+# Resize the annotated image back to its original size before saving
+annotated_image_resized_back = cv2.resize(image, (original_size[1], original_size[0]))
 
 # Save the annotated image
 save_path = "./demo/"
