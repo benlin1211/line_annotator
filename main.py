@@ -60,7 +60,7 @@ undone_lines = []  # Store the undone lines for redo functionality
 
 # Global variable to store points and the flag for dragging
 points = []
-dragging = False
+dragging = False # Flag to track if mouse was dragging to draw
 
 # Callback function to capture mouse events
 def draw_line(event, x, y, flags, param):
@@ -123,9 +123,21 @@ while True:
         ]
         y0, dy = 30, 30  # Initial position and line spacing
         for i, line in enumerate(instructions):
+            if dragging:
+                break
             y = y0 + i * dy
             cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         cv2.imshow('image', temp_image)
+        cv2.waitKey(1000)  
+        
+        # Fade out effect
+        num_step=25
+        for alpha in np.linspace(1, 0, num=num_step):  # Generate 10 steps from 1 to 0
+            if dragging:
+                break
+            faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
+            cv2.imshow('image', faded_image)
+            cv2.waitKey(1000//num_step)  # Wait for 100 ms between frames
     
     elif k == ord('s'):  # Redo the last undone line
         break
