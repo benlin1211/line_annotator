@@ -24,15 +24,14 @@ def display_instructions():
     # Wait for 2 second before starting to fade out # time.sleep(2)
     # Use waitKey so that you can press anykey to break it.
     
+    # # Fade out effect
+    # num_step=25
+    # for alpha in np.linspace(1, 0, num=num_step):  # Generate 10 steps from 1 to 0
+    #     faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
+    #     cv2.imshow('image', faded_image)
+    #     cv2.waitKey(1000//num_step)  # Wait for 100 ms between frames
     
-    # Fade out effect
-    num_step=25
-    for alpha in np.linspace(1, 0, num=num_step):  # Generate 10 steps from 1 to 0
-        faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
-        cv2.imshow('image', faded_image)
-        cv2.waitKey(1000//num_step)  # Wait for 100 ms between frames
-    
-    cv2.imshow('image', image)  # Show the original image again
+    # cv2.imshow('image', image)  # Show the original image again
 
 
 # Load your image
@@ -112,8 +111,22 @@ while True:
             cv2.line(image, line[0], line[1], color, thickness=thickness)
             cv2.imshow('image', image)
     elif k == ord('h'):  # Show/hide instructions
-        display_instructions()
-        cv2.imshow('image', image)
+        # display_instructions()
+        temp_image = image.copy()
+        instructions = [
+            "Instructions:",
+            "Left click and drag to draw a line.",
+            "Press 'u' to undo the last line.",
+            "Press 'r' to redo the last undone line.",
+            "Press 's' to save and leave.",
+            "Press 'h' to hide/show this help."
+        ]
+        y0, dy = 30, 30  # Initial position and line spacing
+        for i, line in enumerate(instructions):
+            y = y0 + i * dy
+            cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        cv2.imshow('image', temp_image)
+    
     elif k == ord('s'):  # Redo the last undone line
         break
     else: # exception handeling
