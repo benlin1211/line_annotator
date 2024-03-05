@@ -2,14 +2,36 @@ import cv2
 import numpy as np
 import os
 
+# Function to display instructions
+def display_instructions():
+    temp_image = image.copy()
+    instructions = [
+        "Instructions:",
+        "Left click and drag to draw a line.",
+        "Press 'u' to undo the last line.",
+        "Press 'r' to redo the last undone line.",
+        "Press 's' to save and leave.",
+        "Press 'h' to hide/show this help."
+    ]
+    y0, dy = 30, 30  # Initial position and line spacing
+    for i, line in enumerate(instructions):
+        y = y0 + i * dy
+        cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+    cv2.imshow('image', temp_image)
+    cv2.waitKey(1000)  # Wait for 1 second
+
+
 # Load your image
 image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
 
 image = cv2.imread(image_path)
 original_size = image.shape[:2]  # Original size (height, width)
 
+# Create a blank image (black image) for drawing annotations
+annotation_image = np.zeros_like(image)
+
 # Desired display size for easier annotation
-scale_factor = 2.0
+scale_factor = 1.0 # Dont move. The annotation will be resized.
 new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_factor))
 
 # Resize image for easier annotation
@@ -47,6 +69,9 @@ def draw_line(event, x, y, flags, param):
         dragging = False
         points.append((x, y))  # Add end point
         lines.append((points[0], points[1]))  # Store the line
+
+        cv2.line(annotation_image, points[0], points[1], color, thickness=thickness)
+        # Update temp_image with the final line for visual feedback
         cv2.line(image, points[0], points[1], color, thickness=thickness)
         cv2.imshow('image', image)  # Show the image with the final line
         ## Also clear redo history.
@@ -75,8 +100,17 @@ while True:
             lines.append(line)  # Move it back to lines list
             cv2.line(image, line[0], line[1], color, thickness=thickness)
             cv2.imshow('image', image)
-    else:
+    elif k == ord('h'):  # Show/hide instructions
+        display_instructions()
+        cv2.imshow('image', image)
+    elif k == ord('s'):  # Redo the last undone line
         break
+    else: # exception handeling
+        temp_image = image.copy()
+        cv2.putText(temp_image, "Press 'u' to undo, any other key to save", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        cv2.imshow('image', temp_image)
+
 
 cv2.destroyAllWindows()
 
@@ -86,4 +120,8 @@ annotated_image_resized_back = cv2.resize(image, (original_size[1], original_siz
 # Save the annotated image
 save_path = "./demo/"
 os.makedirs(save_path, exist_ok=True)
-cv2.imwrite(os.path.join(save_path,'annotated_image.jpg'), image)
+cv2.imwrite(os.path.join(save_path, 'annotation_only.jpg'), annotation_image)
+
+# Optional: Combine original and annotation images for visualization
+combined_image = cv2.addWeighted(image, 1, annotation_image, 1, 0)
+cv2.imwrite(os.path.join(save_path, 'combined_image.jpg'), combined_image)
