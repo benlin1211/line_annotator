@@ -13,6 +13,7 @@ temp_image = image.copy()  # Temporary image for showing the line preview
 color = (255, 255, 255)  # White color
 thickness = 1  # Line thickness
 lines = []  # Store the lines drawn
+undone_lines = []  # Store the undone lines for redo functionality
 
 # Global variable to store points and the flag for dragging
 points = []
@@ -20,7 +21,7 @@ dragging = False
 
 # Callback function to capture mouse events
 def draw_line(event, x, y, flags, param):
-    global points, image, temp_image, dragging, lines
+    global points, image, temp_image, dragging, lines, undone_lines
 
     if event == cv2.EVENT_LBUTTONDOWN:
         dragging = True
@@ -40,6 +41,9 @@ def draw_line(event, x, y, flags, param):
         lines.append((points[0], points[1]))  # Store the line
         cv2.line(image, points[0], points[1], color, thickness=thickness)
         cv2.imshow('image', image)  # Show the image with the final line
+        ## Also clear redo history.
+        undone_lines = [] 
+
 
 # Create a window and bind the callback function to the window
 cv2.namedWindow('image')
@@ -52,10 +56,16 @@ while True:
     k = cv2.waitKey(0)
     if k == ord('u'):  # Undo the last line drawn
         if lines:
-            lines.pop()  # Remove the last line
+            undone_lines.append(lines.pop())  # Move the last line to undone list
             image = backup_image.copy()  # Restore the previous state
             for line in lines:  # Redraw remaining lines
                 cv2.line(image, line[0], line[1], color, thickness=thickness)
+            cv2.imshow('image', image)
+    elif k == ord('r'):  # Redo the last undone line
+        if undone_lines:
+            line = undone_lines.pop()  # Get the last undone line
+            lines.append(line)  # Move it back to lines list
+            cv2.line(image, line[0], line[1], color, thickness=thickness)
             cv2.imshow('image', image)
     else:
         break
