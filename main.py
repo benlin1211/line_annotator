@@ -114,7 +114,6 @@ while True:
             cv2.imshow('image', image)
     elif k == ord('h'):  # Show/hide instructions
         instruction_image = image.copy()
-        num_frame = 25
         instructions = [
             "Instructions:",
             "Left click and drag to draw a line.",
@@ -129,12 +128,11 @@ while True:
             y = y0 + i * dy
             cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         cv2.imshow('image', instruction_image)
-
     elif k == ord('s'):  # Save
         break
-    
     else: # exception handeling
         temp_image = image.copy()
+        num_frame = 25
         leave_help = False
         # Display the description on the temporary image
         cv2.putText(temp_image, "Press 'u' to undo, 's' to save and leave.", (10, 30),
