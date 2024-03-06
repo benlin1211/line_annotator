@@ -10,8 +10,48 @@ class AnnotatorState():
         self.leave_hint = False # Flag to record if hint info should disappear
         self.leave_help = False # Flag to record if help info should disappear
         self.consecutive_mode = False # Add a flag for consecutive drawing mode.
+        self.drawing_mode = "line"
+
     ## TODO...
 
+def show_help(info_list, image, state):
+    instruction_image = image.copy()
+    if state.leave_help == False:
+        y0, dy = 30, 30  # Initial position and line spacing
+        for i, line in enumerate(info_list):
+            y = y0 + i * dy
+            cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+        cv2.imshow('image', instruction_image)
+        state.leave_help = True
+    else:
+        cv2.imshow('image', image)
+        state.leave_help = False
+
+def show_hint(info_list, image, state, duration=2000, num_frame=25):
+    temp_image = image.copy()
+    state.leave_hint = False
+    y0, dy = 30, 30  # Initial position and line spacing
+    for i, line in enumerate(info_list):
+        y = y0 + i * dy
+        cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+    cv2.imshow('image', temp_image)
+
+    # Wait for 2 second
+    for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
+        if state.leave_hint:
+            break
+        if cv2.waitKey(duration//num_frame) != -1:  # Wait for 100 ms between frames
+            break
+        
+    # Fade out effect
+    for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
+        if state.leave_hint:
+            break
+        faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
+        cv2.imshow('image', faded_image)
+        if cv2.waitKey(1000//num_frame) != -1:  # Wait for 100 ms between frames
+            break
+    cv2.imshow('image', image)
      
 if __name__=="__main__":
     # Load your image
@@ -55,41 +95,37 @@ if __name__=="__main__":
     # Global variable to store points and the flag for dragging
     points = []
     state = AnnotatorState()
-    # dragging = False # Flag to track if mouse was dragging to draw
-    # leave_hint = False # Flag to record if hint info should disappear
-    # leave_help = False # Flag to record if help info should disappear
-    # consecutive_mode = False # Add a flag for consecutive drawing mode.
 
     # Callback function to capture mouse events
     def draw_line(event, x, y, flags, param):
         global points, image, temp_image, lines, undone_lines, state
             # dragging, leave_hint, consecutive_mode
+        if state.drawing_mode == "line":
+            if event == cv2.EVENT_LBUTTONDOWN:
+                state.dragging = True
+                state.leave_hint = True
+                if state.consecutive_mode and lines:
+                    # Start from the last point of the last line if consecutive mode is active
+                    points = [lines[-1][1]]  # Last point of the last line
+                else:
+                    points = [(x, y)]  # Reset points list with the new start
 
-        if event == cv2.EVENT_LBUTTONDOWN:
-            state.dragging = True
-            state.leave_hint = True
-            if state.consecutive_mode and lines:
-                # Start from the last point of the last line if consecutive mode is active
-                points = [lines[-1][1]]  # Last point of the last line
-            else:
-                points = [(x, y)]  # Reset points list with the new start
+            elif event == cv2.EVENT_MOUSEMOVE and state.dragging:
+                temp_image = image.copy()
+                cv2.line(temp_image, points[0], (x, y), color, thickness=thickness)
+                cv2.imshow('image', temp_image)
 
-        elif event == cv2.EVENT_MOUSEMOVE and state.dragging:
-            temp_image = image.copy()
-            cv2.line(temp_image, points[0], (x, y), color, thickness=thickness)
-            cv2.imshow('image', temp_image)
+            elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
+                state.dragging = False
+                points.append((x, y))  # Add end point
+                lines.append((points[0], points[1]))  # Store the line
 
-        elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
-            state.dragging = False
-            points.append((x, y))  # Add end point
-            lines.append((points[0], points[1]))  # Store the line
-
-            cv2.line(annotation, points[0], points[1], color, thickness=thickness)
-            # Update temp_image with the final line for visual feedback
-            cv2.line(image, points[0], points[1], color, thickness=thickness)
-            cv2.imshow('image', image)  # Show the image with the final line
-            ## Also clear redo history.
-            undone_lines = [] 
+                cv2.line(annotation, points[0], points[1], color, thickness=thickness)
+                # Update temp_image with the final line for visual feedback
+                cv2.line(image, points[0], points[1], color, thickness=thickness)
+                cv2.imshow('image', image)  # Show the image with the final line
+                ## Also clear redo history.
+                undone_lines = [] 
 
     # Create a window and bind the callback function to the window
     cv2.namedWindow('image')
@@ -100,12 +136,16 @@ if __name__=="__main__":
 
     while True:
         k = cv2.waitKey(0)
+        # ====== Switch drawing mode ======
+        if k == ord('x'):
+            state.drawing_mode = "scratch" if state.drawing_mode == "line" else "line"
+            print(f"[INFO] Switched to {state.drawing_mode} mode")
         # ====== Toggle consecutive drawing mode ======
-        if k == ord('c'):
+        elif k == ord('c'):
             state.consecutive_mode = not state.consecutive_mode  
             print(f"[INFO] Consecutive drawing mode {'enabled' if state.consecutive_mode else 'disabled'}.")
         # ====== Undo the last line drawn ======
-        if k == ord('u'):  
+        elif k == ord('u'):  
             if lines:
                 undone_lines.append(lines.pop())  # Move the last line to undone list
                 image = image_backup.copy()  # Restore the previous state
@@ -128,24 +168,29 @@ if __name__=="__main__":
         elif k == ord('h'):  
             instruction_image = image.copy()
             instructions = [
-                "Left click and drag to draw a line.",
-                "Press 'u' to undo the last line.",
-                "Press 'r' to redo the last undone line.",
-                "Press 's' to save and leave.",
-                "Press 'h' to show/hide this help.",
-                "Press left mouse to start drawing."
+                "============= Welcome to Line Annotator! =============",
+                "Press left click to draw a line.",
+                "Undo: 'u'",
+                "Redo: 'r'",
+                "Switch to Line mode: 'x'",
+                "Leave and Save: 's'",
+                "Leave without Saveing: 'esc'",
+                "=============== Author: Zhong-Wei Lin ===============", 
+                "",
             ]
-            print(instructions)
-            if state.leave_help == False:
-                y0, dy = 30, 30  # Initial position and line spacing
-                for i, line in enumerate(instructions):
-                    y = y0 + i * dy
-                    cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-                cv2.imshow('image', instruction_image)
-                state.leave_help = True
-            else:
-                cv2.imshow('image', image)
-                state.leave_help = False
+            for line in instructions:
+                print(line)
+            show_help(instructions, image, state)
+            # if state.leave_help == False:
+            #     y0, dy = 30, 30  # Initial position and line spacing
+            #     for i, line in enumerate(instructions):
+            #         y = y0 + i * dy
+            #         cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            #     cv2.imshow('image', instruction_image)
+            #     state.leave_help = True
+            # else:
+            #     cv2.imshow('image', image)
+            #     state.leave_help = False
         # ====== Leave and Save ======
         elif k == ord('s'):  
             # Resize the annotated image back to its original size before saving
@@ -168,35 +213,14 @@ if __name__=="__main__":
         # ====== Exception handeling (show hint) ======
         else: 
             temp_image = image.copy()
-            num_frame = 25
-            state.leave_hint = False
             # Display the description on the temporary image
             hints = [
+                "Hint:",
                 "Press 'u' to undo, 'r' to redo.",
                 "Press 's' to save and leave.",
             ]
-            y0, dy = 30, 30  # Initial position and line spacing
-            for i, line in enumerate(hints):
-                y = y0 + i * dy
-                cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-            cv2.imshow('image', temp_image)
-
-            # Wait for 2 second
-            for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-                if state.leave_hint:
-                    break
-                if cv2.waitKey(2000//num_frame) != -1:  # Wait for 100 ms between frames
-                    break
-                
-            # Fade out effect
-            for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-                if state.leave_hint:
-                    break
-                faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
-                cv2.imshow('image', faded_image)
-                if cv2.waitKey(1000//num_frame) != -1:  # Wait for 100 ms between frames
-                    break
-            cv2.imshow('image', image)
+            show_hint(hints, image, state)
+            
 
     cv2.destroyAllWindows()
 
