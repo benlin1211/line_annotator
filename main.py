@@ -146,20 +146,22 @@ def find_nearest_point_on_map(image, position, target_color):
     """
     Find the nearest pixel position of target_color to the given position in the image.
     """
+    x, y = position
     # Create a boolean mask where the color matches the target color
     mask = np.all(image == target_color, axis=-1)
     # Find all y, x positions where mask is True
-    yx = np.column_stack(np.where(mask))
+    ones_y, ones_x = np.where(mask==True)
     
-    if yx.size == 0:
+    if len(ones_x) == 0:
         return position  # Return the original position if no target color found
     
     # Calculate distances from position to all points with target color
-    distances = np.sqrt(np.sum((yx - position[::-1]) ** 2, axis=1))
+    distances = (ones_x - x) ** 2 + (ones_y - y) ** 2
     # Find the index of the minimum distance
     nearest_index = np.argmin(distances)
     # Return the nearest point (note the reversal from y,x to x,y)
-    return yx[nearest_index][::-1]
+    return (ones_x[nearest_index], ones_y[nearest_index])
+
 
 
 def find_nearest_point_within_radius(annotation, position, radius, target_color):
@@ -241,17 +243,14 @@ if __name__=="__main__":
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
 
-        radius = 3 #px
-        roi_size = 9
+        roi_size = 5 # (5x5px)
         ROI = extract_sub_image(annotation, x, y, roi_size)
-        print(ROI.shape)
 
         if event == cv2.EVENT_LBUTTONDOWN:
             myAnn.state.start_dragging()
             # Start from the nearest point.
-            # nearest_x, nearest_y = find_nearest_point_on_map(annotation, myAnn.color, (x, y)) 
-            
-            n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)
+            n_x, n_y = find_nearest_point_on_map(annotation, (x, y), myAnn.color)
+            # n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)
             points = [(n_x, n_y)]
             # if len(myAnn.lines)==0: # First drag
             #     print("First drag")
@@ -261,13 +260,13 @@ if __name__=="__main__":
 
         elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
             temp_image = image.copy()
-            n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)  
+            n_x, n_y = find_nearest_point_on_map(annotation, (x, y), myAnn.color)
             cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
             cv2.imshow('image', temp_image)
 
         elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
             myAnn.state.end_draggging()
-            n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)    
+            n_x, n_y = find_nearest_point_on_map(annotation, (x, y), myAnn.color) 
             points.append((n_x, n_y))  # Add end point
             myAnn.lines.append((points[0], points[1]))  # Store the line
 
