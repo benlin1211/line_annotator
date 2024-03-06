@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import os
 import time
+from scipy.ndimage import convolve
+
 
 class Annotator():
     def __init__(self) -> None:
@@ -12,8 +14,7 @@ class Annotator():
         self.lines = []  # Store the lines drawn
         self.undone_lines = []  # Store the undone lines for redo functionality
 
-        # Global variable to store points and the flag for dragging
-        self.points = []
+        # State variable to store the flags
         self.state = AnnotatorState()
 
 
@@ -24,29 +25,47 @@ class AnnotatorState():
     def __init__(self) -> None:
         # Color, thickness for the annotation
 
-        self.dragging = False # Flag to track if mouse was dragging to draw
-        self.scratching = False # Flag to track if mouse was scratching
+        self.is_dragging = False # Flag to track if mouse was is_dragging to draw
+        self.is_scratching = False # Flag to track if mouse was is_scratching
         self.leave_hint = False # Flag to record if hint info should disappear
         self.leave_help = False # Flag to record if help info should disappear
-        self.consecutive_mode = False # Add a flag for consecutive drawing mode.
+        self.drag_style = None # Add a flag for consecutive drawing mode.
         self.drawing_mode = "line"
 
     ## TODO: show status
     def check_state(self):
         pass
+    
+    # is_dragging behavior
+    def start_dragging(self):
+        self.is_dragging = True
+        self.leave_hint = True 
+
+    def end_draggging(self):
+        self.is_dragging = False
+
+    # straching behavior
+    def start_scratching(self):
+        self.scratch = True
+        self.leave_hint = True 
+
+    def end_scratching(self):
+        self.scratch = False
+
+
 
 def print_on_console(info_list: list):
     for line in info_list:
         print(line)
 
-def print_on_image(info_list, image, myAnn, duration=2000, num_frame=25):
+def print_on_image(info_list, image, myAnn, duration=2000, num_frame=25, font_size=0.7):
     # Show on cmd.
     temp_image = image.copy()
     myAnn.state.leave_hint = False
     y0, dy = 30, 30  # Initial position and line spacing
     for i, line in enumerate(info_list):
         y = y0 + i * dy
-        cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, myAnn.color, 2)
+        cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, font_size, myAnn.color, 2)
     cv2.imshow('image', temp_image)
     # Wait for 2 second
     for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
@@ -66,7 +85,64 @@ def print_on_image(info_list, image, myAnn, duration=2000, num_frame=25):
     cv2.imshow('image', image)
 
 
-def find_nearest_color_point(image, target_color, position):
+def extract_sub_image(image, x, y, roi_size):
+    """
+    Extract a sub-image centered at (x, y) with a size of 9x9 (index from [x-4: x+4, y-4:y+4]).
+    Includes boundary handling to ensure the indices do not go out of the image bounds.
+    
+    Parameters:
+    - image: The input image as a NumPy array.
+    - x, y: The center coordinates of the sub-image.
+    
+    Returns:
+    - The extracted sub-image as a NumPy array.
+    """
+    # Determine the shape of the input image
+    height, width = image.shape[:2]
+    
+    # Calculate start and end indices with boundary handling
+    start_x = max(x - roi_size//2, 0)
+    end_x = min(x + roi_size//2+1, width)  # +5 because upper bound is exclusive
+    start_y = max(y - roi_size//2, 0)
+    end_y = min(y + roi_size//2+1, height)
+    
+    # Extract the sub-image
+    sub_image = image[start_y:end_y, start_x:end_x]
+    
+    return sub_image
+
+
+# def find_segment_endpoints(annotation):
+
+#     if annotation.shape[2] == 3:  # Image is in RGB format
+#         grayscale_image = np.sum(annotation, axis=2)
+#         binary_map = (grayscale_image > 0).astype(np.uint8)
+#     else:
+#         raise ValueError("Image format not recognized or already in grayscale.")
+    
+#     # Array to store the positions of the endpoints
+#     endpoints = []
+    
+#     # Directions to check the neighbors (8-connectivity)
+#     directions = [(-1, -1), (-1, 0), (-1, 1), 
+#                   (0, -1),           (0, 1),
+#                   (1, -1),  (1, 0),  (1, 1)]
+    
+#     for i in range(binary_map.shape[0]):
+#         for j in range(binary_map.shape[1]):
+#             if binary_map[i, j] == 1:  # Check if the current cell is part of a segment
+#                 neighbor_count = 0
+#                 for direction in directions:
+#                     ni, nj = i + direction[0], j + direction[1]
+#                     if 0 <= ni < binary_map.shape[0] and 0 <= nj < binary_map.shape[1] and binary_map[ni, nj] == 1:
+#                         neighbor_count += 1
+#                 if neighbor_count == 1:  # If exactly one neighbor is part of the segment (8-connectivity), it's an endpoint
+#                     endpoints.append((i, j))
+    
+#     return endpoints
+
+
+def find_nearest_point_on_map(image, position, target_color):
     """
     Find the nearest pixel position of target_color to the given position in the image.
     """
@@ -85,30 +161,56 @@ def find_nearest_color_point(image, target_color, position):
     # Return the nearest point (note the reversal from y,x to x,y)
     return yx[nearest_index][::-1]
 
+
+def find_nearest_point_within_radius(annotation, position, radius, target_color):
+
+    endpoints = find_nearest_point_on_map(annotation, position, target_color)
+
+    if len(endpoints)==0:
+        print("near")
+        return position  # Return the original position if no points are provided
+
+    # Convert list of points to a numpy array for efficient computation
+    xy = np.array(endpoints)
+
+    # Calculate squared Euclidean distances from the given position to all points
+    d2 = np.sum((xy - np.array(position)) ** 2, axis=1)
+
+    # Check if there's any point within the radius
+    within_radius = d2 <= radius**2
+    if not np.any(within_radius):
+        return position  # Return the original position if no point is within the radius
+
+    # Find the index of the minimum distance within the radius
+    nearest_index = np.argmin(d2[within_radius])
+    # Get the actual nearest point within radius
+    nearest_point = xy[within_radius][nearest_index]
+
+    return tuple(nearest_point)
+
+
      
 if __name__=="__main__":
 
-        # Callback function to capture mouse events
+    # ============ Callback function to capture mouse events ============
     def handle_line_mode(event, x, y, flags, param):
-        global points, image, temp_image, myAnn 
+        global points, image, temp_image, annotation, myAnn
 
-        # dragging, leave_hint, consecutive_mode
         if event == cv2.EVENT_LBUTTONDOWN:
-            myAnn.state.dragging = True
-            myAnn.state.leave_hint = True
-            if myAnn.state.consecutive_mode and myAnn.lines:
-                # Start from the last point of the last line if consecutive mode is active
+            myAnn.state.start_dragging()
+            if myAnn.state.drag_style=="consecutive" and myAnn.lines:
+                # Start from the last point of the last line.
                 points = [myAnn.lines[-1][1]]  # Last point of the last line
             else:
                 points = [(x, y)]  # Reset points list with the new start
 
-        elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.dragging:
+        elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
             temp_image = image.copy()
             cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
             cv2.imshow('image', temp_image)
 
         elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
-            myAnn.state.dragging = False
+            myAnn.state.end_draggging()
             points.append((x, y))  # Add end point
             myAnn.lines.append((points[0], points[1]))  # Store the line
 
@@ -119,25 +221,72 @@ if __name__=="__main__":
             ## Also clear redo history.
             myAnn.undone_lines = [] 
 
-    ## TODO: Fix bug (maybe not using it?)
-    def handle_scratch_mode(event, x, y, flags, param):
-        global points, image, temp_image, myAnn 
+
+    # TODO: Scratch = drawing several lines in frame... (or maybe not using it?)
+    def _handle_scratch_mode(event, x, y, flags, param):
+        global points, image, temp_image, annotation, myAnn
         if event == cv2.EVENT_LBUTTONDOWN:
-            myAnn.state.scratching = True
+            myAnn.state.start_scratching()
             cv2.circle(annotation, (x, y), 1, myAnn.color, -1)
-        elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.scratching:
+
+        elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_scratching:
+            # keep reading "points" and use cv2.line to connect them all 
             cv2.circle(annotation, (x, y), 1, myAnn.color, -1)
             cv2.imshow('image', cv2.addWeighted(image, 0.8, annotation, 0.5, 0))
+            
         elif event == cv2.EVENT_LBUTTONUP:
-            myAnn.state.scratching = False
+            myAnn.state.end_scratching()
 
+
+    def handle_nearest_mode(event, x, y, flags, param):
+        global points, image, temp_image, annotation, myAnn
+
+        radius = 3 #px
+        roi_size = 9
+        ROI = extract_sub_image(annotation, x, y, roi_size)
+        print(ROI.shape)
+
+        if event == cv2.EVENT_LBUTTONDOWN:
+            myAnn.state.start_dragging()
+            # Start from the nearest point.
+            # nearest_x, nearest_y = find_nearest_point_on_map(annotation, myAnn.color, (x, y)) 
+            
+            n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)
+            points = [(n_x, n_y)]
+            # if len(myAnn.lines)==0: # First drag
+            #     print("First drag")
+            #     points = [(n_x, n_y)]
+            # else:
+            #     points = [myAnn.lines[-1][1]]
+
+        elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
+            temp_image = image.copy()
+            n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)  
+            cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
+            cv2.imshow('image', temp_image)
+
+        elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
+            myAnn.state.end_draggging()
+            n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)    
+            points.append((n_x, n_y))  # Add end point
+            myAnn.lines.append((points[0], points[1]))  # Store the line
+
+            cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
+            # Update temp_image with the final line for visual feedback
+            cv2.line(image, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
+            cv2.imshow('image', image)  # Show the image with the final line
+            ## Also clear redo history.
+            myAnn.undone_lines = [] 
+
+    ## ========================= Main handler =========================
     def mouse_handler(event, x, y, flags, param):
         global points, image, temp_image, myAnn
-
         if myAnn.state.drawing_mode == "line":
             handle_line_mode(event, x, y, flags, param)
         elif myAnn.state.drawing_mode == "scratch":
-            handle_scratch_mode(event, x, y, flags, param)
+            _handle_scratch_mode(event, x, y, flags, param)
+        elif myAnn.state.drawing_mode == "nearest":
+            handle_nearest_mode(event, x, y, flags, param)
 
     # Load your image
     image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
@@ -181,23 +330,53 @@ if __name__=="__main__":
 
     while True:
         k = cv2.waitKey(0)
-        # ====== Switch drawing mode ======
+        # ====== Switch drawing mode (not implemented.) ======
         if k == ord('x'):
             # myAnn.state.drawing_mode = "scratch" if myAnn.state.drawing_mode == "line" else "line"
             # hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             hints = [f"Warning: Scratch mode not implemented."]
             print_on_console(hints)
             print_on_image(hints, image, myAnn)            
-        # ====== Toggle consecutive drawing mode ======
+        # # ====== Toggle nearest dragging mode ======
+        elif k == ord('n'):
+            myAnn.state.drawing_mode = "nearest"
+            hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
+            print_on_console(hints)
+            print_on_image(hints, image, myAnn) 
+            # if myAnn.state.drawing_mode == "nearest":
+            #     myAnn.state.drag_style = "nearest"
+            #     print("Nearest dragging mode enabled")
+            # else:
+            #     print(f"Current state: {myAnn.state.drawing_mode} is not suitable for nearest color line mode.")
+        
+        # ====== Toggle line  mode ======
+        elif k == ord('l'):
+            myAnn.state.drawing_mode = "line"
+            hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
+            print_on_console(hints)
+            print_on_image(hints, image, myAnn) 
+
+        # ====== Toggle consecutive dragging mode ======
         elif k == ord('c'):
             if myAnn.state.drawing_mode == "line":
-                myAnn.state.consecutive_mode = not myAnn.state.consecutive_mode  
-                hints = [f" {'Enable' if myAnn.state.consecutive_mode else 'Disable'} consecutive drawing mode."]
+                myAnn.state.drag_style = "consecutive"
+                hints = [f" {'Enable' if myAnn.state.drag_style else 'Disable'} consecutive dragging mode."]
                 print_on_console(hints)
                 print_on_image(hints, image, myAnn)
             else:
-                hints = [f"Consecutive drawing is avaliable under drawing_mode only."]
+                hints = [f"Consecutive dragging is avaliable for drawing_mode only."]
                 print_on_console(hints)
+        # ====== Toggle arbitrary dragging mode ======
+        elif k == ord('a'):
+            if myAnn.state.drawing_mode == "line":
+                myAnn.state.drag_style = None
+                hints = ["Arbitrary dragging mode."]
+                print_on_console(hints)
+                print_on_image(hints, image, myAnn)
+            else:
+                hints = [f"Arbitrary dragging is avaliable for drawing_mode only."]
+                print_on_console(hints)
+
         # ====== Undo the last line drawn ======
         elif k == ord('u'):  
             if myAnn.lines:
@@ -219,20 +398,21 @@ if __name__=="__main__":
                 cv2.imshow('image', image)
                 print("[INFO] Redo.") 
         # ====== Show/hide instructions ======
-        elif k == ord('h'):  
-            instruction_image = image.copy()
-            instructions = [
-                "============= Welcome to Line Annotator! =============",
-                "Press left click to draw a line.",
-                "Undo: 'u'",
-                "Redo: 'r'",
-                "Switch to Line mode: 'x'",
-                "Leave and Save: 's'",
-                "Leave without Saveing: 'esc'",
-                "=============== Author: Zhong-Wei Lin ===============", 
-                "",
-            ]
-            print_on_console(instructions)
+        # elif k == ord('h'):  
+        #     instruction_image = image.copy()
+        #     instructions = [
+        #         "============= Welcome to Line Annotator! =============",
+        #         "Press left click to draw a line.",
+        #         "Undo: 'u'",
+        #         "Redo: 'r'",
+        #         "Scratch mode: 'x'",
+        #         "Leave and Save: 's'",
+        #         "Leave without Saveing: 'esc'",
+        #         "(Under Line mode) Nearest: 'n';  Consecutive: 'c'; Arbitrary: 'a'",
+        #         "=============== Author: Zhong-Wei Lin ===============", 
+        #         "",
+        #     ]
+        #     print_on_console(instructions)
         # ====== Leave and Save ======
         elif k == ord('s'):  
             # Resize the annotated image back to its original size before saving
@@ -254,16 +434,30 @@ if __name__=="__main__":
             break
         # ====== Exception handeling (show hint) ======
         else: 
-            temp_image = image.copy()
-            # Display the description on the temporary image
-            hints = [
-                "Hint:",
-                "Press 'u' to undo, 'r' to redo.",
-                "Press 's' to save and leave.",
+            # temp_image = image.copy()
+            # # Display the description on the temporary image
+            # hints = [
+            #     "Hint:",
+            #     "Press 'u' to undo, 'r' to redo.",
+            #     "Press 's' to save and leave.",
+            # ]
+            # print_on_console(hints)
+            # print_on_image(hints, image, myAnn)
+            instruction_image = image.copy()
+            instructions = [
+                "============= Welcome to Line Annotator! =============",
+                "Press left click to draw a line.",
+                "Undo: 'u'",
+                "Redo: 'r'",
+                "Scratch mode: 'x'",
+                "Leave and Save: 's'",
+                "Leave without Saveing: 'esc'",
+                "(Under Line mode) Nearest: 'n';  Consecutive: 'c'; Arbitrary: 'a'",
+                "=============== Author: Zhong-Wei Lin ===============", 
+                "",
             ]
-            print_on_console(hints)
-            print_on_image(hints, image, myAnn)
-            
+            print_on_console(instructions)
+            print_on_image(instructions, image, myAnn, font_size=0.5)
 
     cv2.destroyAllWindows()
 
