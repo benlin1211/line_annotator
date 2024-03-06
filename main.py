@@ -125,35 +125,20 @@ def extract_sub_image(image, x, y, roi_size):
 #     return global_nx, global_ny
 
 
-def find_segment_endpoints(annotation):
-
-    if annotation.shape[2] == 3:  # Image is in RGB format
-        grayscale_image = np.sum(annotation, axis=2)
-        binary_map = (grayscale_image > 0).astype(np.uint8)
-    else:
-        raise ValueError("Image format not recognized or already in grayscale.")
+def detect_endpoints(binary_map):
+    # Define the kernel for 8-connectivity
+    kernel = np.array([[1, 1, 1],
+                       [1, 0, 1],
+                       [1, 1, 1]])
     
-    # Array to store the positions of the endpoints
-    endpoints = []
+    # Convolve binary map with kernel to count neighbors
+    neighbor_count = convolve(binary_map.astype(np.uint8), kernel, mode='constant', cval=0)
     
-    # Directions to check the neighbors (8-connectivity)
-    directions = [(-1, -1), (-1, 0), (-1, 1), 
-                  (0, -1),           (0, 1),
-                  (1, -1),  (1, 0),  (1, 1)]
+    # Endpoints are segment pixels with exactly one neighbor
+    endpoints = (binary_map == 1) & (neighbor_count == 1)
     
-    for i in range(binary_map.shape[0]):
-        for j in range(binary_map.shape[1]):
-            if binary_map[i, j] == 1:  # Check if the current cell is part of a segment
-                neighbor_count = 0
-                for direction in directions:
-                    ni, nj = i + direction[0], j + direction[1]
-                    if 0 <= ni < binary_map.shape[0] and 0 <= nj < binary_map.shape[1] and binary_map[ni, nj] == 1:
-                        neighbor_count += 1
-                if neighbor_count == 1:  # If exactly one neighbor is part of the segment (8-connectivity), it's an endpoint
-                    endpoints.append((i, j))
-                    
-    return endpoints
-
+    return np.transpose(np.nonzero(endpoints))
+    # return np.nonzero(endpoints)
 
 
 def find_nearest_point_on_map(ROI, position, image_size, target_color):
@@ -168,14 +153,14 @@ def find_nearest_point_on_map(ROI, position, image_size, target_color):
     # mask = np.all(ROI == target_color, axis=-1)
     # # Find all y, x positions where mask is True
     # ones_x, ones_y = np.where(mask==True) # 
-    endpoints = np.transpose(np.array(find_segment_endpoints(ROI)))
+    # endpoints = np.transpose(np.array(find_segment_endpoints(ROI)))
+    binary_map = np.where(np.all(ROI == target_color, axis=-1), 1, 0)
+    endpoints = detect_endpoints(binary_map)
     ## TODO: find all endpoints in ROI.
-    
     if len(endpoints) == 0:
         return position  # Return the original position if no target color found
     else:
-        print(endpoints)
-        ones_x, ones_y = endpoints
+        ones_x, ones_y = np.transpose(endpoints)
     # Calculate distances from position to all points with target color
     distances = (ones_x - x) ** 2 + (ones_y - y) ** 2
     # Find the index of the minimum distance
@@ -269,7 +254,7 @@ if __name__=="__main__":
             myAnn.state.end_scratching()
 
 
-    def handle_nearest_mode(event, x, y, flags, param):
+    def _handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
 
         roi_size = 50  # (5x5px)
@@ -316,7 +301,7 @@ if __name__=="__main__":
         elif myAnn.state.drawing_mode == "scratch":
             _handle_scratch_mode(event, x, y, flags, param)
         elif myAnn.state.drawing_mode == "nearest":
-            handle_nearest_mode(event, x, y, flags, param)
+            _handle_nearest_mode(event, x, y, flags, param)
 
     # Load your image
     image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
@@ -369,8 +354,9 @@ if __name__=="__main__":
             print_on_image(hints, image, myAnn)            
         # # ====== Toggle nearest dragging mode ======
         elif k == ord('n'):
-            myAnn.state.drawing_mode = "nearest"
-            hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
+            # myAnn.state.drawing_mode = "nearest"
+            # hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
+            hints = [f"Warning: nearest mode not implemented."]
             print_on_console(hints)
             print_on_image(hints, image, myAnn) 
             # if myAnn.state.drawing_mode == "nearest":
