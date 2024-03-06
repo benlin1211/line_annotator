@@ -14,24 +14,24 @@ class AnnotatorState():
 
     ## TODO...
 
-def show_help(info_list: list, image, state):
-    instruction_image = image.copy()
-    if state.leave_help == False:
-        y0, dy = 30, 30  # Initial position and line spacing
-        for i, line in enumerate(info_list):
-            y = y0 + i * dy
-            cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-        cv2.imshow('image', instruction_image)
-        state.leave_help = True
-    else:
-        cv2.imshow('image', image)
-        state.leave_help = False
+def show_help(info_list: list):
+    for line in info_list:
+        print(line)
+    # instruction_image = image.copy()
+    # if state.leave_help == False:
+    #     y0, dy = 30, 30  # Initial position and line spacing
+    #     for i, line in enumerate(info_list):
+    #         y = y0 + i * dy
+    #         cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+    #     cv2.imshow('image', instruction_image)
+    #     state.leave_help = True
+    # else:
+    #     cv2.imshow('image', image)
+    #     state.leave_help = False
 
 def show_hint(info_list, image, state, duration=2000, num_frame=25):
     # Show on cmd.
-    for line in hints:
-        print(f"[INFO] {line}")
-
+    show_help(info_list)
     temp_image = image.copy()
     state.leave_hint = False
     y0, dy = 30, 30  # Initial position and line spacing
@@ -39,7 +39,6 @@ def show_hint(info_list, image, state, duration=2000, num_frame=25):
         y = y0 + i * dy
         cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
     cv2.imshow('image', temp_image)
-
     # Wait for 2 second
     for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
         if state.leave_hint:
@@ -147,9 +146,13 @@ if __name__=="__main__":
             show_hint(hints, image, state)            
         # ====== Toggle consecutive drawing mode ======
         elif k == ord('c'):
-            state.consecutive_mode = not state.consecutive_mode  
-            hints = [f"Consecutive drawing mode {'enabled' if state.consecutive_mode else 'disabled'}."]
-            show_hint(hints, image, state)
+            if state.drawing_mode == "line":
+                state.consecutive_mode = not state.consecutive_mode  
+                hints = [f"Consecutive drawing mode {'enabled' if state.consecutive_mode else 'disabled'}."]
+                show_hint(hints, image, state)
+            else:
+                hints = [f"Consecutive drawing is avaliable under drawing_mode only."]
+                show_help(hints)
         # ====== Undo the last line drawn ======
         elif k == ord('u'):  
             if lines:
@@ -184,9 +187,7 @@ if __name__=="__main__":
                 "=============== Author: Zhong-Wei Lin ===============", 
                 "",
             ]
-            for line in instructions:
-                print(line)
-            show_help(instructions, image, state)
+            show_help(instructions)
             # if state.leave_help == False:
             #     y0, dy = 30, 30  # Initial position and line spacing
             #     for i, line in enumerate(instructions):
