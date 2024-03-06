@@ -10,6 +10,7 @@ class AnnotatorState():
         self.leave_hint = False # Flag to record if hint info should disappear
         self.leave_help = False # Flag to record if help info should disappear
         self.consecutive_mode = False # Add a flag for consecutive drawing mode.
+    ## TODO...
 
      
 if __name__=="__main__":
@@ -53,32 +54,33 @@ if __name__=="__main__":
 
     # Global variable to store points and the flag for dragging
     points = []
-    dragging = False # Flag to track if mouse was dragging to draw
-    leave_hint = False # Flag to record if hint info should disappear
-    leave_help = False # Flag to record if help info should disappear
-    consecutive_mode = False # Add a flag for consecutive drawing mode.
+    state = AnnotatorState()
+    # dragging = False # Flag to track if mouse was dragging to draw
+    # leave_hint = False # Flag to record if hint info should disappear
+    # leave_help = False # Flag to record if help info should disappear
+    # consecutive_mode = False # Add a flag for consecutive drawing mode.
 
     # Callback function to capture mouse events
     def draw_line(event, x, y, flags, param):
-        global points, image, temp_image, lines, undone_lines, \
-            dragging, leave_hint, consecutive_mode
+        global points, image, temp_image, lines, undone_lines, state
+            # dragging, leave_hint, consecutive_mode
 
         if event == cv2.EVENT_LBUTTONDOWN:
-            dragging = True
-            leave_hint = True
-            if consecutive_mode and lines:
+            state.dragging = True
+            state.leave_hint = True
+            if state.consecutive_mode and lines:
                 # Start from the last point of the last line if consecutive mode is active
                 points = [lines[-1][1]]  # Last point of the last line
             else:
                 points = [(x, y)]  # Reset points list with the new start
 
-        elif event == cv2.EVENT_MOUSEMOVE and dragging:
+        elif event == cv2.EVENT_MOUSEMOVE and state.dragging:
             temp_image = image.copy()
             cv2.line(temp_image, points[0], (x, y), color, thickness=thickness)
             cv2.imshow('image', temp_image)
 
         elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
-            dragging = False
+            state.dragging = False
             points.append((x, y))  # Add end point
             lines.append((points[0], points[1]))  # Store the line
 
@@ -100,8 +102,8 @@ if __name__=="__main__":
         k = cv2.waitKey(0)
         # ====== Toggle consecutive drawing mode ======
         if k == ord('c'):
-            consecutive_mode = not consecutive_mode  
-            print(f"[INFO] Consecutive drawing mode {'enabled' if consecutive_mode else 'disabled'}.")
+            state.consecutive_mode = not state.consecutive_mode  
+            print(f"[INFO] Consecutive drawing mode {'enabled' if state.consecutive_mode else 'disabled'}.")
         # ====== Undo the last line drawn ======
         if k == ord('u'):  
             if lines:
@@ -134,16 +136,16 @@ if __name__=="__main__":
                 "Press left mouse to start drawing."
             ]
             print(instructions)
-            if leave_help == False:
+            if state.leave_help == False:
                 y0, dy = 30, 30  # Initial position and line spacing
                 for i, line in enumerate(instructions):
                     y = y0 + i * dy
                     cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
                 cv2.imshow('image', instruction_image)
-                leave_help = True
+                state.leave_help = True
             else:
                 cv2.imshow('image', image)
-                leave_help = False
+                state.leave_help = False
         # ====== Leave and Save ======
         elif k == ord('s'):  
             # Resize the annotated image back to its original size before saving
@@ -157,15 +159,17 @@ if __name__=="__main__":
             # Optional: Combine original and annotation images for visualization
             combined_image = cv2.addWeighted(image, 1, annotation, 1, 0)
             cv2.imwrite(os.path.join(save_path, 'combined_image.jpg'), combined_image)
+            print("[INFO] Save results at save_path.")
             break
         # ====== ESC key to leave without saving ======
         elif k == 27: 
+            print("[INFO] Leave without saving.")
             break
         # ====== Exception handeling (show hint) ======
         else: 
             temp_image = image.copy()
             num_frame = 25
-            leave_hint = False
+            state.leave_hint = False
             # Display the description on the temporary image
             hints = [
                 "Press 'u' to undo, 'r' to redo.",
@@ -179,14 +183,14 @@ if __name__=="__main__":
 
             # Wait for 2 second
             for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-                if leave_hint:
+                if state.leave_hint:
                     break
                 if cv2.waitKey(2000//num_frame) != -1:  # Wait for 100 ms between frames
                     break
                 
             # Fade out effect
             for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-                if leave_hint:
+                if state.leave_hint:
                     break
                 faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
                 cv2.imshow('image', faded_image)
