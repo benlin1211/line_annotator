@@ -14,7 +14,7 @@ class AnnotatorState():
 
     ## TODO...
 
-def show_help(info_list, image, state):
+def show_help(info_list: list, image, state):
     instruction_image = image.copy()
     if state.leave_help == False:
         y0, dy = 30, 30  # Initial position and line spacing
@@ -28,6 +28,10 @@ def show_help(info_list, image, state):
         state.leave_help = False
 
 def show_hint(info_list, image, state, duration=2000, num_frame=25):
+    # Show on cmd.
+    for line in hints:
+        print(f"[INFO] {line}")
+
     temp_image = image.copy()
     state.leave_hint = False
     y0, dy = 30, 30  # Initial position and line spacing
@@ -40,8 +44,8 @@ def show_hint(info_list, image, state, duration=2000, num_frame=25):
     for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
         if state.leave_hint:
             break
-        if cv2.waitKey(duration//num_frame) != -1:  # Wait for 100 ms between frames
-            break
+        elif cv2.waitKey(duration//num_frame) != -1:  # Wait for 100 ms between frames
+            state.leave_hint=True
         
     # Fade out effect
     for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
@@ -50,7 +54,7 @@ def show_hint(info_list, image, state, duration=2000, num_frame=25):
         faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
         cv2.imshow('image', faded_image)
         if cv2.waitKey(1000//num_frame) != -1:  # Wait for 100 ms between frames
-            break
+            state.leave_hint=True
     cv2.imshow('image', image)
      
 if __name__=="__main__":
@@ -139,11 +143,13 @@ if __name__=="__main__":
         # ====== Switch drawing mode ======
         if k == ord('x'):
             state.drawing_mode = "scratch" if state.drawing_mode == "line" else "line"
-            print(f"[INFO] Switched to {state.drawing_mode} mode")
+            hints = [f"Switched to {state.drawing_mode} mode."]
+            show_hint(hints, image, state)            
         # ====== Toggle consecutive drawing mode ======
         elif k == ord('c'):
             state.consecutive_mode = not state.consecutive_mode  
-            print(f"[INFO] Consecutive drawing mode {'enabled' if state.consecutive_mode else 'disabled'}.")
+            hints = [f"Consecutive drawing mode {'enabled' if state.consecutive_mode else 'disabled'}."]
+            show_hint(hints, image, state)
         # ====== Undo the last line drawn ======
         elif k == ord('u'):  
             if lines:
