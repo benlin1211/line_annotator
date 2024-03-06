@@ -41,7 +41,8 @@ image = cv2.imread(image_path)
 original_size = image.shape[:2]  # Original size (height, width)
 
 # Create a blank image (black image) for drawing annotations
-annotation_image = np.zeros_like(image)
+annotation = np.zeros_like(image)
+annotation_backup = np.zeros_like(image)
 
 # Desired display size for easier annotation
 scale_factor = 1.0 # Dont move. The annotation will be resized.
@@ -49,7 +50,7 @@ new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_f
 
 # Resize image for easier annotation
 image = cv2.resize(image, new_size)
-backup_image = image.copy()  # Backup image for undo functionality
+image_backup = image.copy()  # Backup image for undo functionality
 temp_image = image.copy()  # Temporary image for showing the line preview
 
 # Color, thickness for the annotation, and list to store lines
@@ -89,7 +90,7 @@ def draw_line(event, x, y, flags, param):
         points.append((x, y))  # Add end point
         lines.append((points[0], points[1]))  # Store the line
 
-        cv2.line(annotation_image, points[0], points[1], color, thickness=thickness)
+        cv2.line(annotation, points[0], points[1], color, thickness=thickness)
         # Update temp_image with the final line for visual feedback
         cv2.line(image, points[0], points[1], color, thickness=thickness)
         cv2.imshow('image', image)  # Show the image with the final line
@@ -113,10 +114,11 @@ while True:
     if k == ord('u'):  
         if lines:
             undone_lines.append(lines.pop())  # Move the last line to undone list
-            image = backup_image.copy()  # Restore the previous state
+            image = image_backup.copy()  # Restore the previous state
+            annotation = annotation_backup.copy()  # Restore the previous state
             for line in lines:  # Redraw remaining lines
                 cv2.line(image, line[0], line[1], color, thickness=thickness)
-
+                cv2.line(annotation, line[0], line[1], color, thickness=thickness)
             cv2.imshow('image', image)
     # ====== Redo the last undone line ======
     elif k == ord('r'):  
@@ -124,6 +126,7 @@ while True:
             line = undone_lines.pop()  # Get the last undone line
             lines.append(line)  # Move it back to lines list
             cv2.line(image, line[0], line[1], color, thickness=thickness)
+            cv2.line(annotation, line[0], line[1], color, thickness=thickness)
             cv2.imshow('image', image)
     # ====== Show/hide instructions ======
     elif k == ord('h'):  
@@ -180,7 +183,6 @@ while True:
             cv2.imshow('image', faded_image)
             if cv2.waitKey(1000//num_frame) != -1:  # Wait for 100 ms between frames
                 break
-
         cv2.imshow('image', image)
 
 cv2.destroyAllWindows()
@@ -191,8 +193,8 @@ annotated_image_resized_back = cv2.resize(image, (original_size[1], original_siz
 # Save the annotated image
 save_path = "./demo/"
 os.makedirs(save_path, exist_ok=True)
-cv2.imwrite(os.path.join(save_path, 'annotation_only.jpg'), annotation_image)
+cv2.imwrite(os.path.join(save_path, 'annotation_only.jpg'), annotation)
 
 # Optional: Combine original and annotation images for visualization
-combined_image = cv2.addWeighted(image, 1, annotation_image, 1, 0)
+combined_image = cv2.addWeighted(image, 1, annotation, 1, 0)
 cv2.imwrite(os.path.join(save_path, 'combined_image.jpg'), combined_image)
