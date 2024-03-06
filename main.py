@@ -31,6 +31,8 @@ class AnnotatorState():
         self.leave_help = False # Flag to record if help info should disappear
         self.drag_style = None # Add a flag for consecutive drawing mode.
         self.drawing_mode = "line"
+        
+        self.immediately_draw=False
 
     ## TODO: show status
     def check_state(self):
@@ -111,87 +113,111 @@ def extract_sub_image(image, x, y, roi_size):
     
     return sub_image
 
+# def local_to_global(local_coord, roi_center, image_size):
+#     local_nx, local_ny = local_coord
+#     x, y = roi_center
+    
+#     global_nx = x + local_nx
+#     global_ny = y + local_ny
+#     global_nx = max(0, min(global_nx, image_size[0] - 1))
+#     global_ny = max(0, min(global_ny, image_size[1] - 1))
 
-# def find_segment_endpoints(annotation):
-
-#     if annotation.shape[2] == 3:  # Image is in RGB format
-#         grayscale_image = np.sum(annotation, axis=2)
-#         binary_map = (grayscale_image > 0).astype(np.uint8)
-#     else:
-#         raise ValueError("Image format not recognized or already in grayscale.")
-    
-#     # Array to store the positions of the endpoints
-#     endpoints = []
-    
-#     # Directions to check the neighbors (8-connectivity)
-#     directions = [(-1, -1), (-1, 0), (-1, 1), 
-#                   (0, -1),           (0, 1),
-#                   (1, -1),  (1, 0),  (1, 1)]
-    
-#     for i in range(binary_map.shape[0]):
-#         for j in range(binary_map.shape[1]):
-#             if binary_map[i, j] == 1:  # Check if the current cell is part of a segment
-#                 neighbor_count = 0
-#                 for direction in directions:
-#                     ni, nj = i + direction[0], j + direction[1]
-#                     if 0 <= ni < binary_map.shape[0] and 0 <= nj < binary_map.shape[1] and binary_map[ni, nj] == 1:
-#                         neighbor_count += 1
-#                 if neighbor_count == 1:  # If exactly one neighbor is part of the segment (8-connectivity), it's an endpoint
-#                     endpoints.append((i, j))
-    
-#     return endpoints
+#     return global_nx, global_ny
 
 
-def find_nearest_point_on_map(ROI, position, target_color):
+def find_segment_endpoints(annotation):
+
+    if annotation.shape[2] == 3:  # Image is in RGB format
+        grayscale_image = np.sum(annotation, axis=2)
+        binary_map = (grayscale_image > 0).astype(np.uint8)
+    else:
+        raise ValueError("Image format not recognized or already in grayscale.")
+    
+    # Array to store the positions of the endpoints
+    endpoints = []
+    
+    # Directions to check the neighbors (8-connectivity)
+    directions = [(-1, -1), (-1, 0), (-1, 1), 
+                  (0, -1),           (0, 1),
+                  (1, -1),  (1, 0),  (1, 1)]
+    
+    for i in range(binary_map.shape[0]):
+        for j in range(binary_map.shape[1]):
+            if binary_map[i, j] == 1:  # Check if the current cell is part of a segment
+                neighbor_count = 0
+                for direction in directions:
+                    ni, nj = i + direction[0], j + direction[1]
+                    if 0 <= ni < binary_map.shape[0] and 0 <= nj < binary_map.shape[1] and binary_map[ni, nj] == 1:
+                        neighbor_count += 1
+                if neighbor_count == 1:  # If exactly one neighbor is part of the segment (8-connectivity), it's an endpoint
+                    endpoints.append((i, j))
+                    
+    return endpoints
+
+
+
+def find_nearest_point_on_map(ROI, position, image_size, target_color):
     """
     Find the nearest pixel position of target_color to the given position in the image.
     """
+    
     x, y = position
+    h, w = ROI.shape[:2]
     # Create a boolean mask where the color matches the target color
-    mask = np.all(ROI == target_color, axis=-1)
-    # Find all y, x positions where mask is True
-    ones_y, ones_x = np.where(mask==True)
+
+    # mask = np.all(ROI == target_color, axis=-1)
+    # # Find all y, x positions where mask is True
+    # ones_x, ones_y = np.where(mask==True) # 
+    endpoints = np.transpose(np.array(find_segment_endpoints(ROI)))
+    ## TODO: find all endpoints in ROI.
     
-    if len(ones_x) == 0:
-        print("yes")
+    if len(endpoints) == 0:
         return position  # Return the original position if no target color found
-    
+    else:
+        print(endpoints)
+        ones_x, ones_y = endpoints
     # Calculate distances from position to all points with target color
     distances = (ones_x - x) ** 2 + (ones_y - y) ** 2
-    print(ROI.shape)
-    print(len(distances))
     # Find the index of the minimum distance
     nearest_index = np.argmin(distances)
     # Return the nearest point (note the reversal from y,x to x,y)
-    return (ones_x[nearest_index], ones_y[nearest_index])
+    local_nx = ones_x[nearest_index]
+    local_ny = ones_y[nearest_index]
+    ## Convert local coordinate in a 2D ROI to global coordinate value.
+    global_nx = x + local_nx - h//2
+    global_ny = y + local_ny - w//2
+    global_nx = max(0, min(global_nx, image_size[0] - 1))
+    global_ny = max(0, min(global_ny, image_size[1] - 1))
+    
+    return (global_nx, global_ny)
 
 
 
-def _find_nearest_point_within_radius(annotation, position, radius, target_color):
+# def _find_nearest_point_within_radius(annotation, position, radius, target_color):
 
-    endpoints = find_nearest_point_on_map(annotation, position, target_color)
+#     endpoints = find_nearest_point_on_map(annotation, position, image.shape[:2], target_color)
 
-    if len(endpoints)==0:
-        print("near")
-        return position  # Return the original position if no points are provided
+#     if len(endpoints)==0:
+#         print("near")
+#         return position  # Return the original position if no points are provided
 
-    # Convert list of points to a numpy array for efficient computation
-    xy = np.array(endpoints)
+#     # Convert list of points to a numpy array for efficient computation
+#     xy = np.array(endpoints)
 
-    # Calculate squared Euclidean distances from the given position to all points
-    d2 = np.sum((xy - np.array(position)) ** 2, axis=1)
+#     # Calculate squared Euclidean distances from the given position to all points
+#     d2 = np.sum((xy - np.array(position)) ** 2, axis=1)
 
-    # Check if there's any point within the radius
-    within_radius = d2 <= radius**2
-    if not np.any(within_radius):
-        return position  # Return the original position if no point is within the radius
+#     # Check if there's any point within the radius
+#     within_radius = d2 <= radius**2
+#     if not np.any(within_radius):
+#         return position  # Return the original position if no point is within the radius
 
-    # Find the index of the minimum distance within the radius
-    nearest_index = np.argmin(d2[within_radius])
-    # Get the actual nearest point within radius
-    nearest_point = xy[within_radius][nearest_index]
+#     # Find the index of the minimum distance within the radius
+#     nearest_index = np.argmin(d2[within_radius])
+#     # Get the actual nearest point within radius
+#     nearest_point = xy[within_radius][nearest_index]
 
-    return tuple(nearest_point)
+#     return tuple(nearest_point)
 
 
      
@@ -246,30 +272,32 @@ if __name__=="__main__":
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
 
-        roi_size = 5 # (5x5px)
+        roi_size = 50  # (5x5px)
         ROI = extract_sub_image(annotation, x, y, roi_size)
 
         if event == cv2.EVENT_LBUTTONDOWN:
             myAnn.state.start_dragging()
             # Start from the nearest point.
-            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), myAnn.color)
-            # n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)
+            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), image.shape[:2], myAnn.color)
+            # n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)       
             points = [(n_x, n_y)]
-            # if len(myAnn.lines)==0: # First drag
-            #     print("First drag")
-            #     points = [(n_x, n_y)]
-            # else:
-            #     points = [myAnn.lines[-1][1]]
+            # if n_x!=x or n_y!=y: # First draw
+            #     myAnn.state.immediately_draw = True
 
         elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
             temp_image = image.copy()
-            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), myAnn.color)
-            cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
+            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), image.shape[:2], myAnn.color)
+            if n_x==x and n_y==y: # same point
+                print("A")
+                cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
+            else:
+                print("B")
+                cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
             cv2.imshow('image', temp_image)
 
         elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
             myAnn.state.end_draggging()
-            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), myAnn.color) 
+            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), image.shape[:2], myAnn.color) 
             points.append((n_x, n_y))  # Add end point
             myAnn.lines.append((points[0], points[1]))  # Store the line
 
