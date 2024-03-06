@@ -61,24 +61,30 @@ undone_lines = []  # Store the undone lines for redo functionality
 # Global variable to store points and the flag for dragging
 points = []
 dragging = False # Flag to track if mouse was dragging to draw
-leave_help = False
-leave_instruction = False
+leave_hint = False # Flag to record if hint info should disappear
+leave_help = False # Flag to record if help info should disappear
+consecutive_mode = False # Add a flag for consecutive drawing mode.
 
 # Callback function to capture mouse events
 def draw_line(event, x, y, flags, param):
-    global points, image, temp_image, dragging, lines, undone_lines, leave_help
+    global points, image, temp_image, lines, undone_lines, \
+           dragging, leave_hint, consecutive_mode
 
     if event == cv2.EVENT_LBUTTONDOWN:
         dragging = True
-        leave_help = True
-        points = [(x, y)]  # Reset points list with the new start
+        leave_hint = True
+        if consecutive_mode and lines:
+            # Start from the last point of the last line if consecutive mode is active
+            points = [lines[-1][1]]  # Last point of the last line
+        else:
+            points = [(x, y)]  # Reset points list with the new start
 
     elif event == cv2.EVENT_MOUSEMOVE and dragging:
         temp_image = image.copy()
         cv2.line(temp_image, points[0], (x, y), color, thickness=thickness)
         cv2.imshow('image', temp_image)
 
-    elif event == cv2.EVENT_LBUTTONUP:
+    elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
         dragging = False
         points.append((x, y))  # Add end point
         lines.append((points[0], points[1]))  # Store the line
@@ -90,7 +96,6 @@ def draw_line(event, x, y, flags, param):
         ## Also clear redo history.
         undone_lines = [] 
 
-
 # Create a window and bind the callback function to the window
 cv2.namedWindow('image')
 cv2.setMouseCallback('image', draw_line)
@@ -100,20 +105,28 @@ cv2.imshow('image', image)
 
 while True:
     k = cv2.waitKey(0)
-    if k == ord('u'):  # Undo the last line drawn
+    # ====== Toggle consecutive drawing mode ======
+    if k == ord('c'):
+        consecutive_mode = not consecutive_mode  
+        print(f"[Command] Consecutive drawing mode {'enabled' if consecutive_mode else 'disabled'}.")
+    # ====== Undo the last line drawn ======
+    if k == ord('u'):  
         if lines:
             undone_lines.append(lines.pop())  # Move the last line to undone list
             image = backup_image.copy()  # Restore the previous state
             for line in lines:  # Redraw remaining lines
                 cv2.line(image, line[0], line[1], color, thickness=thickness)
+
             cv2.imshow('image', image)
-    elif k == ord('r'):  # Redo the last undone line
+    # ====== Redo the last undone line ======
+    elif k == ord('r'):  
         if undone_lines:
             line = undone_lines.pop()  # Get the last undone line
             lines.append(line)  # Move it back to lines list
             cv2.line(image, line[0], line[1], color, thickness=thickness)
             cv2.imshow('image', image)
-    elif k == ord('h'):  # Show/hide instructions
+    # ====== Show/hide instructions ======
+    elif k == ord('h'):  
         instruction_image = image.copy()
         instructions = [
             "Left click and drag to draw a line.",
@@ -123,22 +136,24 @@ while True:
             "Press 'h' to show/hide this help.",
             "Press left mouse to start drawing."
         ]
-        if leave_instruction == False:
+        if leave_help == False:
             y0, dy = 30, 30  # Initial position and line spacing
             for i, line in enumerate(instructions):
                 y = y0 + i * dy
                 cv2.putText(instruction_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
             cv2.imshow('image', instruction_image)
-            leave_instruction = True
+            leave_help = True
         else:
             cv2.imshow('image', image)
-            leave_instruction = False
-    elif k == ord('s'):  # Save
+            leave_help = False
+    # ====== Leave and Save ======
+    elif k == ord('s'):  
         break
-    else: # exception handeling
+    # ====== Exception handeling (show hint) ======
+    else: 
         temp_image = image.copy()
         num_frame = 25
-        leave_help = False
+        leave_hint = False
         # Display the description on the temporary image
         hints = [
             "Press 'u' to undo, 'r' to redo.",
@@ -152,18 +167,14 @@ while True:
 
         # Wait for 2 second
         for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-            if leave_help:
+            if leave_hint:
                 break
             if cv2.waitKey(2000//num_frame) != -1:  # Wait for 100 ms between frames
                 break
-
-        # if leave_help:
-        #     break
-        # cv2.waitKey(2000)  
-            
+             
         # Fade out effect
         for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-            if leave_help:
+            if leave_hint:
                 break
             faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
             cv2.imshow('image', faded_image)
