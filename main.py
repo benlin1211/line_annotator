@@ -125,7 +125,10 @@ def extract_sub_image(image, x, y, roi_size):
 #     return global_nx, global_ny
 
 
-def detect_endpoints(binary_map):
+def detect_endpoints_local(ROI, target_color):
+    
+    binary_map = np.where(np.all(ROI == target_color, axis=-1), 1, 0)
+    
     # Define the kernel for 8-connectivity
     kernel = np.array([[1, 1, 1],
                        [1, 0, 1],
@@ -140,15 +143,30 @@ def detect_endpoints(binary_map):
     return np.transpose(np.nonzero(endpoints))
     # return np.nonzero(endpoints)
 
+def local2global(local_point, curser_pos, ROI_size, image_size):
 
-def find_nearest_point_on_map_within_radius(ROI, curser_pos, image_size, target_color, radius):
+    h, w = ROI_size[0], ROI_size[1]
+    assert h%2==1 and w%2==1
+    cx = h//2
+    cy = h//2    
+    local_nx, local_ny = local_point
+    gx, gy = curser_pos
+    
+    global_nx = local_nx - cx + gx
+    global_ny = local_ny - cy + gy
+    global_nx = max(0, min(global_nx, image_size[0] - 1))
+    global_ny = max(0, min(global_ny, image_size[1] - 1))
+    return (global_nx, global_ny)
+
+
+def find_nearest_point_on_map_within_radius(ROI_size, local_endpoints, curser_pos, image_size, radius):
     """
     Find the nearest pixel position of target_color to the given position in the image.
     """
     
     #x, y = curser_pos # global
 
-    h, w = ROI.shape[:2]
+    h, w = ROI_size[0], ROI_size[1]
     assert h%2==1 and w%2==1
     cx = h//2
     cy = h//2
@@ -158,13 +176,14 @@ def find_nearest_point_on_map_within_radius(ROI, curser_pos, image_size, target_
     # # Find all y, x positions where mask is True
     # ones_x, ones_y = np.where(mask==True) # 
     # endpoints = np.transpose(np.array(find_segment_endpoints(ROI)))
-    binary_map = np.where(np.all(ROI == target_color, axis=-1), 1, 0)
-    endpoints = detect_endpoints(binary_map)
+    # binary_map = np.where(np.all(ROI == target_color, axis=-1), 1, 0)
+    # endpoints = detect_endpoints_local(binary_map)
+
     ## TODO: find all endpoints in ROI.
-    if len(endpoints) == 0:
+    if len(local_endpoints) == 0:
         return curser_pos  # Return the original position if no target color found
     else:
-        ones_x, ones_y = np.transpose(endpoints)
+        ones_x, ones_y = np.transpose(local_endpoints)
         # Calculate distances from center to all points with target color
         distances = (ones_x - cx) ** 2 + (ones_y - cy) ** 2
         # Find the index of the minimum distance
@@ -176,42 +195,20 @@ def find_nearest_point_on_map_within_radius(ROI, curser_pos, image_size, target_
             local_nx = ones_x[nearest_index]
             local_ny = ones_y[nearest_index]
             ## Convert local coordinate in a 2D ROI to global coordinate value.
-            gx, gy = curser_pos
-            global_nx = local_nx - cx + gx
-            global_ny = local_ny - cy + gy
-            global_nx = max(0, min(global_nx, image_size[0] - 1))
-            global_ny = max(0, min(global_ny, image_size[1] - 1))
+            # gx, gy = curser_pos
+            # global_nx = local_nx - cx + gx
+            # global_ny = local_ny - cy + gy
+            # global_nx = max(0, min(global_nx, image_size[0] - 1))
+            # global_ny = max(0, min(global_ny, image_size[1] - 1))
+            global_nx, global_ny = local2global((local_nx, local_ny), curser_pos, ROI_size, image_size)
         
     return (global_nx, global_ny)
 
 
-
-# def _find_nearest_point_within_radius(annotation, position, radius, target_color):
-
-#     endpoints = find_nearest_point_on_map(annotation, position, image.shape[:2], target_color)
-
-#     if len(endpoints)==0:
-#         print("near")
-#         return position  # Return the original position if no points are provided
-
-#     # Convert list of points to a numpy array for efficient computation
-#     xy = np.array(endpoints)
-
-#     # Calculate squared Euclidean distances from the given position to all points
-#     d2 = np.sum((xy - np.array(position)) ** 2, axis=1)
-
-#     # Check if there's any point within the radius
-#     within_radius = d2 <= radius**2
-#     if not np.any(within_radius):
-#         return position  # Return the original position if no point is within the radius
-
-#     # Find the index of the minimum distance within the radius
-#     nearest_index = np.argmin(d2[within_radius])
-#     # Get the actual nearest point within radius
-#     nearest_point = xy[within_radius][nearest_index]
-
-#     return tuple(nearest_point)
-
+def add_semi_transparent_rectangle(image, top_left, bottom_right, color, alpha):
+    overlay = image.copy()
+    cv2.rectangle(overlay, top_left, bottom_right, color, -1)  # -1 fills the rectangle
+    return cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
 
      
 if __name__=="__main__":
@@ -265,35 +262,72 @@ if __name__=="__main__":
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
 
-        roi_size = 50  # (5x5px)
-        radius = 10
-        ROI = extract_sub_image(annotation, x, y, roi_size)
+        roi_size = 101  # (5x5px)
+        radius = 25
+        
 
         if event == cv2.EVENT_LBUTTONDOWN:
             myAnn.state.start_dragging()
             # Start from the nearest point.
-            n_x, n_y = find_nearest_point_on_map_within_radius(ROI, (x, y), image.shape[:2], myAnn.color, radius)
+            ROI = extract_sub_image(annotation, x, y, roi_size)
+            local_endpoints = detect_endpoints_local(ROI, myAnn.color)
+            n_x, n_y = find_nearest_point_on_map_within_radius(ROI.shape[:2], local_endpoints, (x, y), image.shape[:2], radius) 
             # n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)       
+            
             points = [(n_x, n_y)]
             # if n_x!=x or n_y!=y: # First draw
             #     myAnn.state.immediately_draw = True
             # print(f"Current pos: {n_x}, {n_y}")
+            if n_x==x and n_y==y: # same point
+                points = [(n_x, n_y)]
+            else:
+                temp_image = image.copy()
+                # Show roi range.
+                roi_top_left = (max(x - roi_size // 2, 0), max(y - roi_size // 2, 0))
+                roi_bottom_right = (min(x + roi_size // 2, image.shape[1]), min(y + roi_size // 2, image.shape[0]))
+                temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
+
+                print(f"\r[INFO] Nearest point triggered: coordinate: {n_x},{n_y}")
+                cv2.line(temp_image, (n_x, n_y), (x, y), myAnn.color, thickness=myAnn.thickness)
+                # Highlight the nearest point (n_x, n_y) with a red circle
+                # # Note: n_x and n_y are reversed
+                cv2.circle(temp_image, (n_x, n_y), radius=1, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+                points = [(n_x, n_y)]
+
+                cv2.imshow('image', temp_image)
+                    
 
         elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
             temp_image = image.copy()
-            n_x, n_y = find_nearest_point_on_map_within_radius(ROI, (x, y), image.shape[:2], myAnn.color, radius)
+            ROI = extract_sub_image(annotation, x, y, roi_size)
+            local_endpoints = detect_endpoints_local(ROI, myAnn.color)
+            n_x, n_y = find_nearest_point_on_map_within_radius(ROI.shape[:2], local_endpoints, (x, y), image.shape[:2], radius) 
+            
+            # Show roi range.
+            roi_top_left = (max(x - roi_size // 2, 0), max(y - roi_size // 2, 0))
+            roi_bottom_right = (min(x + roi_size // 2, image.shape[1]), min(y + roi_size // 2, image.shape[0]))
+            temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
+
             if n_x==x and n_y==y: # same point
-                print("A")
+                print(f"\r[INFO] Position: {x},{y}")
                 cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
             else:
-                print("B")
+                print(f"\r[INFO] Nearest point triggered: coordinate: {n_x},{n_y}")
                 cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
+                # Highlight the nearest point (n_x, n_y) with a red circle
+                for (_px, _py) in local_endpoints:
+                    px, py = local2global((_px, _py), (x,y), ROI.shape[:2], image.shape[:2])
+                    cv2.circle(temp_image, (px, py), radius=1, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+    
             cv2.imshow('image', temp_image)
             # print(f"Current pos: {n_x}, {n_y}")
 
         elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
             myAnn.state.end_draggging()
-            n_x, n_y = find_nearest_point_on_map_within_radius(ROI, (x, y), image.shape[:2], myAnn.color, radius) 
+            ROI = extract_sub_image(annotation, x, y, roi_size)
+            local_endpoints = detect_endpoints_local(ROI, myAnn.color)
+            n_x, n_y = find_nearest_point_on_map_within_radius(ROI.shape[:2], local_endpoints, (x, y), image.shape[:2], radius) 
+            
             points.append((n_x, n_y))  # Add end point
             myAnn.lines.append((points[0], points[1]))  # Store the line
 
