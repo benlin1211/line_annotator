@@ -141,13 +141,17 @@ def detect_endpoints(binary_map):
     # return np.nonzero(endpoints)
 
 
-def find_nearest_point_on_map(ROI, position, image_size, target_color):
+def find_nearest_point_on_map_within_radius(ROI, curser_pos, image_size, target_color, radius):
     """
     Find the nearest pixel position of target_color to the given position in the image.
     """
     
-    x, y = position
+    #x, y = curser_pos # global
+
     h, w = ROI.shape[:2]
+    assert h%2==1 and w%2==1
+    cx = h//2
+    cy = h//2
     # Create a boolean mask where the color matches the target color
 
     # mask = np.all(ROI == target_color, axis=-1)
@@ -158,22 +162,26 @@ def find_nearest_point_on_map(ROI, position, image_size, target_color):
     endpoints = detect_endpoints(binary_map)
     ## TODO: find all endpoints in ROI.
     if len(endpoints) == 0:
-        return position  # Return the original position if no target color found
+        return curser_pos  # Return the original position if no target color found
     else:
         ones_x, ones_y = np.transpose(endpoints)
-    # Calculate distances from position to all points with target color
-    distances = (ones_x - x) ** 2 + (ones_y - y) ** 2
-    # Find the index of the minimum distance
-    nearest_index = np.argmin(distances)
-    # Return the nearest point (note the reversal from y,x to x,y)
-    local_nx = ones_x[nearest_index]
-    local_ny = ones_y[nearest_index]
-    ## Convert local coordinate in a 2D ROI to global coordinate value.
-    global_nx = x + local_nx - h//2
-    global_ny = y + local_ny - w//2
-    global_nx = max(0, min(global_nx, image_size[0] - 1))
-    global_ny = max(0, min(global_ny, image_size[1] - 1))
-    
+        # Calculate distances from center to all points with target color
+        distances = (ones_x - cx) ** 2 + (ones_y - cy) ** 2
+        # Find the index of the minimum distance
+        if np.amin(distances) > radius**2:
+            return curser_pos  # Return the original position
+        else:
+            nearest_index = np.argmin(distances)
+            # Return the nearest point (note the reversal from y,x to x,y)
+            local_nx = ones_x[nearest_index]
+            local_ny = ones_y[nearest_index]
+            ## Convert local coordinate in a 2D ROI to global coordinate value.
+            gx, gy = curser_pos
+            global_nx = local_nx - cx + gx
+            global_ny = local_ny - cy + gy
+            global_nx = max(0, min(global_nx, image_size[0] - 1))
+            global_ny = max(0, min(global_ny, image_size[1] - 1))
+        
     return (global_nx, global_ny)
 
 
@@ -254,24 +262,26 @@ if __name__=="__main__":
             myAnn.state.end_scratching()
 
 
-    def _handle_nearest_mode(event, x, y, flags, param):
+    def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
 
         roi_size = 50  # (5x5px)
+        radius = 10
         ROI = extract_sub_image(annotation, x, y, roi_size)
 
         if event == cv2.EVENT_LBUTTONDOWN:
             myAnn.state.start_dragging()
             # Start from the nearest point.
-            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), image.shape[:2], myAnn.color)
+            n_x, n_y = find_nearest_point_on_map_within_radius(ROI, (x, y), image.shape[:2], myAnn.color, radius)
             # n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)       
             points = [(n_x, n_y)]
             # if n_x!=x or n_y!=y: # First draw
             #     myAnn.state.immediately_draw = True
+            # print(f"Current pos: {n_x}, {n_y}")
 
         elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
             temp_image = image.copy()
-            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), image.shape[:2], myAnn.color)
+            n_x, n_y = find_nearest_point_on_map_within_radius(ROI, (x, y), image.shape[:2], myAnn.color, radius)
             if n_x==x and n_y==y: # same point
                 print("A")
                 cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
@@ -279,10 +289,11 @@ if __name__=="__main__":
                 print("B")
                 cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
             cv2.imshow('image', temp_image)
+            # print(f"Current pos: {n_x}, {n_y}")
 
         elif event == cv2.EVENT_LBUTTONUP: # Record the drawing
             myAnn.state.end_draggging()
-            n_x, n_y = find_nearest_point_on_map(ROI, (x, y), image.shape[:2], myAnn.color) 
+            n_x, n_y = find_nearest_point_on_map_within_radius(ROI, (x, y), image.shape[:2], myAnn.color, radius) 
             points.append((n_x, n_y))  # Add end point
             myAnn.lines.append((points[0], points[1]))  # Store the line
 
@@ -292,6 +303,7 @@ if __name__=="__main__":
             cv2.imshow('image', image)  # Show the image with the final line
             ## Also clear redo history.
             myAnn.undone_lines = [] 
+            # print(f"Current pos: {n_x}, {n_y}")
 
     ## ========================= Main handler =========================
     def mouse_handler(event, x, y, flags, param):
@@ -301,7 +313,7 @@ if __name__=="__main__":
         elif myAnn.state.drawing_mode == "scratch":
             _handle_scratch_mode(event, x, y, flags, param)
         elif myAnn.state.drawing_mode == "nearest":
-            _handle_nearest_mode(event, x, y, flags, param)
+            handle_nearest_mode(event, x, y, flags, param)
 
     # Load your image
     image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
@@ -354,9 +366,9 @@ if __name__=="__main__":
             print_on_image(hints, image, myAnn)            
         # # ====== Toggle nearest dragging mode ======
         elif k == ord('n'):
-            # myAnn.state.drawing_mode = "nearest"
-            # hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
-            hints = [f"Warning: nearest mode not implemented."]
+            myAnn.state.drawing_mode = "nearest"
+            hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
+            # hints = [f"Warning: nearest mode not implemented."]
             print_on_console(hints)
             print_on_image(hints, image, myAnn) 
             # if myAnn.state.drawing_mode == "nearest":
@@ -365,7 +377,7 @@ if __name__=="__main__":
             # else:
             #     print(f"Current state: {myAnn.state.drawing_mode} is not suitable for nearest color line mode.")
         
-        # ====== Toggle line  mode ======
+        # ====== Toggle line mode ======
         elif k == ord('l'):
             myAnn.state.drawing_mode = "line"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
