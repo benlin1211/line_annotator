@@ -139,9 +139,13 @@ def detect_endpoints_local(ROI, target_color):
     
     # Endpoints are segment pixels with exactly one neighbor
     endpoints = (binary_map == 1) & (neighbor_count == 1)
-    
-    return np.transpose(np.nonzero(endpoints))
-    # return np.nonzero(endpoints)
+
+    # Find nonzero elements (endpoints), returns in (y, x) format
+    yx_coordinates = np.transpose(np.nonzero(endpoints))
+
+    #  Convert (y, x) to (x, y)
+    xy_coordinates = yx_coordinates[:, [1, 0]]
+    return xy_coordinates
 
 def local2global(local_point, curser_pos, ROI_size, image_size):
 
@@ -273,12 +277,9 @@ if __name__=="__main__":
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
             n_x, n_y = find_nearest_point_on_map_within_radius(ROI.shape[:2], local_endpoints, (x, y), image.shape[:2], radius) 
             # n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)       
-            
             points = [(n_x, n_y)]
-            # if n_x!=x or n_y!=y: # First draw
-            #     myAnn.state.immediately_draw = True
-            # print(f"Current pos: {n_x}, {n_y}")
-            if n_x==x and n_y==y: # same point
+            # Same point
+            if n_x==x and n_y==y:
                 points = [(n_x, n_y)]
             else:
                 temp_image = image.copy()
