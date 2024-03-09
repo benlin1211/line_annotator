@@ -141,34 +141,15 @@ def local2global(local_point, curser_pos, roi_dim, image_size):
     # assert h%2==1 and w%2==1 ## odd square
 
     # # Find the top-lefy corner coordinate for reference point
-    # local_o_x = min(h // 2, gx)
-    # local_o_y = min(w // 2, gy)
-    ## Case1: ROI at bottom
-    inner_shift_x = roi_dim//2 if gx >= roi_dim//2 else gx
-    inner_shift_y = roi_dim//2  if gy >= roi_dim//2  else gy
-    ## Case2: ROI at top
-
-    ## Case3: ROI at right
-
-    ## Case4: ROI at left
+    inner_shift_x = min(roi_dim//2, gx)
+    inner_shift_y = min(roi_dim//2, gy)
     shift_x = min(max(gx - inner_shift_x, 0), image_size[1] - 1)
     shift_y = min(max(gy - inner_shift_y, 0), image_size[0] - 1)
-    # print("===")
-    # print(roi_dim[1], roi_dim[0])
-    # print((w - 1) // 2,  (h - 1) // 2)
-    # print("cursor:", gx, gy)
-    # print((h - 1) // 2, (w - 1) // 2)
-    print("cursor:", gx, gy)
-    print("inner shift:", inner_shift_x, inner_shift_y)
-    # print("shift:", shift_x, shift_y)
-    
-    
+
     global_nx = shift_x + local_nx
     global_ny = shift_y + local_ny
     global_nx = max(0, min(global_nx, image_size[1] - 1))
     global_ny = max(0, min(global_ny, image_size[0] - 1))
-    print("local coor:", local_nx, local_ny)
-    print(f"=>global coor:, {global_nx}, {global_ny}")
 
     return (global_nx, global_ny)
 
@@ -184,9 +165,8 @@ def find_nearest_point_on_map_within_radius(roi_dim, local_endpoints, curser_pos
     # If the center of ROI is not cursor (ROI hitting image boundary)
     # Calculate distances from cursor position to all points with target color
     gx, gy = curser_pos
-    inner_shift_x = roi_dim//2  if gx >= roi_dim//2  else gx
-    inner_shift_y = roi_dim//2  if gy >= roi_dim//2  else gy
-
+    inner_shift_x = min(roi_dim//2, gx)
+    inner_shift_y = min(roi_dim//2, gy)
 
     ## TODO: find all endpoints in ROI.
     if len(local_endpoints) == 0:
@@ -307,7 +287,7 @@ if __name__=="__main__":
             temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
 
             if n_x==x and n_y==y: # same point
-                print(f"\r[INFO] Position: {x},{y}")
+                # print(f"\r[INFO] Position: {x},{y}")
                 cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
             else:
                 print(f"\r[INFO] Nearest point triggered: coordinate: {n_x},{n_y}")
