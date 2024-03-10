@@ -3,6 +3,7 @@ import numpy as np
 import os
 import time
 from scipy.ndimage import convolve
+import glob, re
 
 
 class Annotator():
@@ -50,6 +51,25 @@ class AnnotatorState():
 
     def end_scratching(self):
         self.scratch = False
+
+
+def read_data_pair(image_set, annotation_set):
+    annotation_set = sorted(glob.glob(os.path.join(annotation_root, "*.bmp")))
+    sequence_numbers = []
+    for a in annotation_set:
+        number = os.path.basename(a).split("-")[-2]
+        sequence_numbers.append(number)
+
+    pattern = re.compile(r"-img0[0-2]\.bmp$")
+    image_set = sorted([name for name in glob.glob(os.path.join(image_root, "*.bmp")) \
+                        if (pattern.search(name) and os.path.basename(name).split("-")[-2] in sequence_numbers)])
+    # for p in image_set:
+    #     if  os.path.basename(p).split("-")[-2] not in sequence_numbers:
+    #         print(p)
+    assert len(image_set) == len(annotation_set), \
+        f"Number of image ({len(image_set)}) and annotation ({len(annotation_set)}) are not identical"
+    
+    return image_set, annotation_set
 
 
 def print_on_console(info_list: list):
@@ -329,9 +349,19 @@ if __name__=="__main__":
             handle_nearest_mode(event, x, y, flags, param)
 
     # Load your image
-    image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
-    annotation_path = "/home/pywu/Downloads/zhong/line_annotator/UV-only/0727-0933-0272-img00_UV.bmp"  # Change to your actual path
+    #image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
+    #annotation_path = "/home/pywu/Downloads/zhong/line_annotator/UV-only/0727-0933-0272-img00_UV.bmp"  # Change to your actual path
 
+
+    image_root = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/"
+    annotation_root = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/"
+    image_set, annotation_set = read_data_pair(image_root, annotation_root)
+
+    # For debug
+    for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
+        if idx == 345:
+            print(image_path, annotation_path)
+            break
     image = cv2.imread(image_path)
 
     ## Already in opencv-python==4.9.0.80
