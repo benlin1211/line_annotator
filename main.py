@@ -4,6 +4,10 @@ import os
 import time
 from scipy.ndimage import convolve
 import glob, re
+# import tkinter as tk
+# from tkinter import ttk
+from utils.data_selector import ImageSelector, select_image_annotation_pair
+
 
 
 class Annotator():
@@ -358,10 +362,11 @@ if __name__=="__main__":
     image_set, annotation_set = read_data_pair(image_root, annotation_root)
 
     # For debug
-    for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
-        if idx == 345:
-            print(image_path, annotation_path)
-            break
+    # for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
+    #     if idx == 345:
+    #         print(image_path, annotation_path)
+    #         break
+    image_path, annotation_path = select_image_annotation_pair(image_set, annotation_set)
     image = cv2.imread(image_path)
 
     ## Already in opencv-python==4.9.0.80
