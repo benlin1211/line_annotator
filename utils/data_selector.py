@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-
+import cv2
+import numpy as np
 from PyQt5.QtWidgets import QApplication, QListWidget, QVBoxLayout, QWidget
-import sys
+import sys, os
 
 class ImageSelector(QWidget):
     def __init__(self, image_list):
@@ -25,12 +26,39 @@ class ImageSelector(QWidget):
         current_image_index = qModelIndex.row()
         self.close()
 
-def run_selector_app(image_list):
+
+def open_image_selector(image_list):
     app = QApplication(sys.argv)
     ex = ImageSelector(image_list)
     sys.exit(app.exec_())
 
+# ======================== Read Image by given path ========================
+def read_image_and_annotation(image_path, annotation_path):
 
+    image = cv2.imread(image_path)
+    # Desired display size for easier annotation
+    # ## Already in opencv-python==4.9.0.80
+    # scale_factor = 1.0 # Dont move. The annotation will be resized.
+    # assert scale_factor==1.0
+    # original_size = image.shape[:2]  # Original size (height, width)
+    # new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_factor))
+    # image = cv2.resize(image, new_size)
+
+    # Load previous annotations
+    if os.path.exists(annotation_path):
+        print(f"[INFO] Load existing annotation from {annotation_path}")
+        annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
+        if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
+            annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
+        # Plot previous annotations on image. 
+        image = cv2.addWeighted(image, 1, annotation, 0.5, 0)
+    else:
+        # Create a blank image (black image) for drawing annotations
+        annotation = np.zeros_like(image)
+     
+    return image, annotation
+
+# ======================== Read image by Tkinter ========================
 def select_image_annotation_pair(image_set, annotation_set):
     root = tk.Tk()
     root.title('Select Image and Annotation')

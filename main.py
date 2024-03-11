@@ -6,8 +6,7 @@ from scipy.ndimage import convolve
 import glob, re
 # import tkinter as tk
 # from tkinter import ttk
-from utils.data_selector import ImageSelector, select_image_annotation_pair
-
+from utils.data_selector import read_image_and_annotation, select_image_annotation_pair
 
 
 class Annotator():
@@ -217,7 +216,8 @@ def add_semi_transparent_rectangle(image, top_left, bottom_right, color, alpha):
     cv2.rectangle(overlay, top_left, bottom_right, color, -1)  # -1 fills the rectangle
     return cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
 
-     
+
+
 if __name__=="__main__":
 
     # ============ Callback function to capture mouse events ============
@@ -361,33 +361,40 @@ if __name__=="__main__":
     annotation_root = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/"
     image_set, annotation_set = read_data_pair(image_root, annotation_root)
 
+    # Initialize image selector
+    global current_image_index
+    current_image_index = 345
+    last_index = 345
+
     # For debug
-    # for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
-    #     if idx == 345:
-    #         print(image_path, annotation_path)
-    #         break
+    for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
+        if idx == current_image_index:
+            print(image_path, annotation_path)
+            break
     image_path, annotation_path = select_image_annotation_pair(image_set, annotation_set)
-    image = cv2.imread(image_path)
 
-    ## Already in opencv-python==4.9.0.80
-    # Desired display size for easier annotation
-    scale_factor = 1.0 # Dont move. The annotation will be resized.
-    assert scale_factor==1.0
-    original_size = image.shape[:2]  # Original size (height, width)
-    new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_factor))
-    image = cv2.resize(image, new_size)
 
-    # Load previous annotations
-    if os.path.exists(annotation_path):
-        print(f"[INFO] Load existing annotation from {annotation_path}")
-        annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
-        if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
-            annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
-        # Plot previous annotations on image. 
-        image = cv2.addWeighted(image, 1, annotation, 0.5, 0)
-    else:
-        # Create a blank image (black image) for drawing annotations
-        annotation = np.zeros_like(image)
+    # image = cv2.imread(image_path)
+    # ## Already in opencv-python==4.9.0.80
+    # # Desired display size for easier annotation
+    # scale_factor = 1.0 # Dont move. The annotation will be resized.
+    # assert scale_factor==1.0
+    # original_size = image.shape[:2]  # Original size (height, width)
+    # new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_factor))
+    # image = cv2.resize(image, new_size)
+
+    # # Load previous annotations
+    # if os.path.exists(annotation_path):
+    #     print(f"[INFO] Load existing annotation from {annotation_path}")
+    #     annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
+    #     if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
+    #         annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
+    #     # Plot previous annotations on image. 
+    #     image = cv2.addWeighted(image, 1, annotation, 0.5, 0)
+    # else:
+    #     # Create a blank image (black image) for drawing annotations
+    #     annotation = np.zeros_like(image)
+    image, annotation = read_image_and_annotation(image_path, annotation_path)
 
     # Create Backups 
     temp_image = image.copy()  # Temporary image for showing the line preview
@@ -405,6 +412,18 @@ if __name__=="__main__":
 
     while True:
         k = cv2.waitKey(0)
+
+
+        # if current_image_index != last_index:
+        #     # Load and display the new image
+        #     image_path = image_set[current_image_index]
+        #     image = cv2.imread(image_path)
+        #     cv2.imshow('image', image)
+        #     last_index = current_image_index
+        
+        # if k == ord('n'):  # Press 'n' to open the image selector
+        #     threading.Thread(target=open_image_selector).start()
+
         # ====== Switch drawing mode (not implemented.) ======
         if k == ord('x'):
             # myAnn.state.drawing_mode = "scratch" if myAnn.state.drawing_mode == "line" else "line"
@@ -488,8 +507,8 @@ if __name__=="__main__":
 
         # ====== Leave and Save ======
         elif k == ord('s'):  
-            # Resize the annotated image back to its original size before saving
-            annotated_image_resized_back = cv2.resize(image, (original_size[1], original_size[0]))
+            # # Resize the annotated image back to its original size before saving
+            # annotated_image_resized_back = cv2.resize(image, (original_size[1], original_size[0]))
 
             # Save the annotated image
             save_path = "./demo/"
@@ -507,15 +526,7 @@ if __name__=="__main__":
             break
         # ====== Exception handeling (show hint) ======
         else: 
-            # temp_image = image.copy()
-            # # Display the description on the temporary image
-            # hints = [
-            #     "Hint:",
-            #     "Press 'u' to undo, 'r' to redo.",
-            #     "Press 's' to save and leave.",
-            # ]
-            # print_on_console(hints)
-            # print_on_image(hints, image, myAnn)
+
             instruction_image = image.copy()
             message = [
                 f"Current drawing mode: {myAnn.state.drawing_mode}",
