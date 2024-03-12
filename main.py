@@ -6,8 +6,11 @@ from scipy.ndimage import convolve
 import glob, re
 # import tkinter as tk
 # from tkinter import ttk
-from utils.data_selector import read_image_and_annotation, select_image_annotation_pair
+from utils.data_selector import select_image_annotation_pair, read_image_and_annotation #, run_selector_app
+import threading
 
+import tkinter as tk
+from tkinter import simpledialog
 
 class Annotator():
     def __init__(self) -> None:
@@ -217,6 +220,54 @@ def add_semi_transparent_rectangle(image, top_left, bottom_right, color, alpha):
     return cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
 
 
+def initialize_annotator(image_path, annotation_path):
+
+    image, annotation = read_image_and_annotation(image_path, annotation_path)
+
+    # Create Backups 
+    temp_image = image.copy()  # Temporary image for showing the line preview
+    image_backup = image.copy()  # Backup image for undo functionality
+    annotation_backup = annotation.copy() # Backup image for undo functionality
+
+    # Create Annotator 
+    myAnn = Annotator()
+
+    return image, annotation, temp_image, image_backup, annotation_backup, myAnn
+
+
+# # This function runs the PyQt app in a separate thread
+# def open_image_selector():
+#     run_selector_app(image_set)
+
+# Function to create and show the Tkinter list selection window
+def open_image_selector(image_set):
+    def on_select(evt):
+        # Event handler for selecting an item from the list
+        w = evt.widget
+        index = int(w.curselection()[0])
+        global current_image_index
+        current_image_index = index
+        top.destroy()
+
+    top = tk.Tk()
+    top.title('Select an Image')
+
+    listbox = tk.Listbox(top, width=50, height=20)
+    listbox.pack(side="left", fill="y")
+
+    scrollbar = tk.Scrollbar(top, orient="vertical")
+    scrollbar.config(command=listbox.yview)
+    scrollbar.pack(side="right", fill="y")
+
+    listbox.config(yscrollcommand=scrollbar.set)
+
+    for item in image_set:
+        listbox.insert(tk.END, item)
+
+    listbox.bind('<<ListboxSelect>>', on_select)
+
+    top.mainloop()
+
 
 if __name__=="__main__":
 
@@ -249,7 +300,6 @@ if __name__=="__main__":
             ## Also clear redo history.
             myAnn.undone_lines = [] 
 
-
     # TODO: Scratch = drawing several lines in frame... (or maybe not using it?)
     def _handle_scratch_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
@@ -264,7 +314,6 @@ if __name__=="__main__":
             
         elif event == cv2.EVENT_LBUTTONUP:
             myAnn.state.end_scratching()
-
 
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
@@ -356,9 +405,9 @@ if __name__=="__main__":
     #image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
     #annotation_path = "/home/pywu/Downloads/zhong/line_annotator/UV-only/0727-0933-0272-img00_UV.bmp"  # Change to your actual path
 
-
     image_root = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/"
     annotation_root = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/"
+
     image_set, annotation_set = read_data_pair(image_root, annotation_root)
 
     # Initialize image selector
@@ -366,66 +415,62 @@ if __name__=="__main__":
     current_image_index = 345
     last_index = 345
 
-    # For debug
-    for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
-        if idx == current_image_index:
-            print(image_path, annotation_path)
-            break
-    image_path, annotation_path = select_image_annotation_pair(image_set, annotation_set)
-
-
-    # image = cv2.imread(image_path)
-    # ## Already in opencv-python==4.9.0.80
-    # # Desired display size for easier annotation
-    # scale_factor = 1.0 # Dont move. The annotation will be resized.
-    # assert scale_factor==1.0
-    # original_size = image.shape[:2]  # Original size (height, width)
-    # new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_factor))
-    # image = cv2.resize(image, new_size)
-
-    # # Load previous annotations
-    # if os.path.exists(annotation_path):
-    #     print(f"[INFO] Load existing annotation from {annotation_path}")
-    #     annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
-    #     if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
-    #         annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
-    #     # Plot previous annotations on image. 
-    #     image = cv2.addWeighted(image, 1, annotation, 0.5, 0)
-    # else:
-    #     # Create a blank image (black image) for drawing annotations
-    #     annotation = np.zeros_like(image)
-    image, annotation = read_image_and_annotation(image_path, annotation_path)
-
-    # Create Backups 
-    temp_image = image.copy()  # Temporary image for showing the line preview
-    image_backup = image.copy()  # Backup image for undo functionality
-    annotation_backup = annotation.copy() # Backup image for undo functionality
-
-    myAnn = Annotator()
-
-    # Create a window and bind the callback function to the window
-    cv2.namedWindow('image')
-    cv2.setMouseCallback('image', mouse_handler)
-
-    # Initial display with description
-    cv2.imshow('image', image)
-
-    while True:
-        k = cv2.waitKey(0)
-
-
         # if current_image_index != last_index:
         #     # Load and display the new image
         #     image_path = image_set[current_image_index]
         #     image = cv2.imread(image_path)
         #     cv2.imshow('image', image)
         #     last_index = current_image_index
-        
-        # if k == ord('n'):  # Press 'n' to open the image selector
-        #     threading.Thread(target=open_image_selector).start()
+    # # For debug
+    # for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
+    #     if idx == current_image_index:
+    #         print(image_path, annotation_path)
+    #         break
+
+
+    image_path = image_set[current_image_index]
+    image = cv2.imread(image_path)
+    
+    last_index = current_image_index
+    
+    # Read the first image by selecting in tkinter.
+    image_path, annotation_path = select_image_annotation_pair(image_set, annotation_set)
+
+    # Initialize
+    image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+    # Initial display with description
+    
+    # Create a window and bind the callback function to the window
+    cv2.namedWindow('image')
+    cv2.setMouseCallback('image', mouse_handler)
+    cv2.imshow('image', image)
+
+    while True:
+        k = cv2.waitKey(0)
+        # Initialize image if the index changes. 
+        if current_image_index != last_index:
+            # Load and display the new image
+            image_path = image_set[current_image_index]
+            image = cv2.imread(image_path)
+            
+            last_index = current_image_index
+            
+            # Read the first image by selecting in tkinter.
+            image_path, annotation_path = select_image_annotation_pair(image_set, annotation_set)
+
+            # Initialize
+            image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+            # Initial display with description
+            cv2.imshow('image', image)
+
+
+        if k == ord('/'):  # Press 'n' to open the image selector
+            # threading.Thread(target=open_image_selector).start()
+            threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
+
 
         # ====== Switch drawing mode (not implemented.) ======
-        if k == ord('x'):
+        elif k == ord('x'):
             # myAnn.state.drawing_mode = "scratch" if myAnn.state.drawing_mode == "line" else "line"
             # hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             hints = [f"Warning: Scratch mode not implemented."]
@@ -507,11 +552,12 @@ if __name__=="__main__":
 
         # ====== Leave and Save ======
         elif k == ord('s'):  
-            # # Resize the annotated image back to its original size before saving
-            # annotated_image_resized_back = cv2.resize(image, (original_size[1], original_size[0]))
+            save_path = "./demo/"
+
+            # Save the original image
+            cv2.imwrite(os.path.join(save_path, 'original_image.jpg'), image)
 
             # Save the annotated image
-            save_path = "./demo/"
             os.makedirs(save_path, exist_ok=True)
             cv2.imwrite(os.path.join(save_path, 'annotation_only.jpg'), annotation)
 

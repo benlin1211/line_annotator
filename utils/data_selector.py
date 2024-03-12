@@ -27,7 +27,8 @@ class ImageSelector(QWidget):
         self.close()
 
 
-def open_image_selector(image_list):
+# ======================== Call image selector ========================
+def run_selector_app(image_list):
     app = QApplication(sys.argv)
     ex = ImageSelector(image_list)
     sys.exit(app.exec_())
@@ -36,13 +37,6 @@ def open_image_selector(image_list):
 def read_image_and_annotation(image_path, annotation_path):
 
     image = cv2.imread(image_path)
-    # Desired display size for easier annotation
-    # ## Already in opencv-python==4.9.0.80
-    # scale_factor = 1.0 # Dont move. The annotation will be resized.
-    # assert scale_factor==1.0
-    # original_size = image.shape[:2]  # Original size (height, width)
-    # new_size = (int(original_size[1] * scale_factor), int(original_size[0] * scale_factor))
-    # image = cv2.resize(image, new_size)
 
     # Load previous annotations
     if os.path.exists(annotation_path):
