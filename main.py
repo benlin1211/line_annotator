@@ -6,11 +6,14 @@ from scipy.ndimage import convolve
 import glob, re
 # import tkinter as tk
 # from tkinter import ttk
-from utils.data_selector import select_image_annotation_pair, read_image_and_annotation #, run_selector_app
+from utils.data_selector import select_image_annotation_pair_by_index, read_image_and_annotation #, run_selector_app
+from utils.printer import print_on_console, print_on_image
 import threading
 
 import tkinter as tk
 from tkinter import simpledialog
+import argparse
+
 
 class Annotator():
     def __init__(self) -> None:
@@ -59,7 +62,18 @@ class AnnotatorState():
         self.scratch = False
 
 
-def read_data_pair(image_set, annotation_set):
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
+    parser.add_argument('--save_path', type=str, default='./result/', help='Path to save the output results.')
+    parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
+    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/', help='Root directory for images.')
+    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/', help='Root directory for annotations.')
+    
+    args = parser.parse_args()
+    return args
+
+
+def read_data_pairs(image_set, annotation_set):
     annotation_set = sorted(glob.glob(os.path.join(annotation_root, "*.bmp")))
     sequence_numbers = []
     for a in annotation_set:
@@ -78,36 +92,6 @@ def read_data_pair(image_set, annotation_set):
     return image_set, annotation_set
 
 
-def print_on_console(info_list: list):
-    for line in info_list:
-        print(line)
-
-
-def print_on_image(info_list, image, myAnn, duration=2000, num_frame=25, font_size=0.7):
-    # Show on cmd.
-    temp_image = image.copy()
-    myAnn.state.leave_hint = False
-    y0, dy = 30, 30  # Initial position and line spacing
-    for i, line in enumerate(info_list):
-        y = y0 + i * dy
-        cv2.putText(temp_image, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, font_size, myAnn.color, 2)
-    cv2.imshow('image', temp_image)
-    # Wait for 2 second
-    for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-        if myAnn.state.leave_hint:
-            break
-        elif cv2.waitKey(duration//num_frame) != -1:  # Wait for 100 ms between frames
-            myAnn.state.leave_hint=True
-        
-    # Fade out effect
-    for alpha in np.linspace(1, 0, num=num_frame):  # Generate 10 steps from 1 to 0
-        if myAnn.state.leave_hint:
-            break
-        faded_image = cv2.addWeighted(temp_image, alpha, image, 1 - alpha, 0)
-        cv2.imshow('image', faded_image)
-        if cv2.waitKey(1000//num_frame) != -1:  # Wait for 100 ms between frames
-            myAnn.state.leave_hint=True
-    cv2.imshow('image', image)
 
 
 def extract_sub_image(image, x, y, roi_dim):
@@ -180,7 +164,7 @@ def local2global(local_point, curser_pos, roi_dim, image_size):
     return (global_nx, global_ny)
 
 
-def find_nearest_point_on_map_within_radius(roi_dim, local_endpoints, curser_pos, image_size, radius):
+def find_nearest_point_on_map_within_range(roi_dim, local_endpoints, curser_pos, image_size, range):
     """
     Find the nearest pixel position of target_color to the given position in the image.
     """
@@ -201,7 +185,7 @@ def find_nearest_point_on_map_within_radius(roi_dim, local_endpoints, curser_pos
         ones_x, ones_y = np.transpose(local_endpoints)
         distances = (ones_x - inner_shift_x) ** 2 + (ones_y - inner_shift_y) ** 2
         # Find the index of the minimum distance
-        if np.amin(distances) > radius**2:
+        if np.amin(distances) > range**2:
             return curser_pos  # Return the original position
         else:
             nearest_index = np.argmin(distances)
@@ -270,7 +254,6 @@ def open_image_selector(image_set):
 
 
 if __name__=="__main__":
-
     # ============ Callback function to capture mouse events ============
     def handle_line_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
@@ -319,16 +302,15 @@ if __name__=="__main__":
         global points, image, temp_image, annotation, myAnn
 
         roi_dim = 101  # (5x5px)
-        radius = 8
+        detect_range = 8
         if event == cv2.EVENT_LBUTTONDOWN:
             myAnn.state.start_dragging()
             # Start from the nearest point.
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_radius(roi_dim, local_endpoints, (x, y), image.shape[:2], radius) 
-            # n_x, n_y= find_nearest_point_within_radius(ROI, (x, y), radius, myAnn.color)       
-            points = [(n_x, n_y)]
-            # Same point
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], detect_range)  
+
+            # Same point: do nothing.
             if n_x==x and n_y==y:
                 points = [(n_x, n_y)]
             else:
@@ -352,7 +334,7 @@ if __name__=="__main__":
             temp_image = image.copy()
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_radius(roi_dim, local_endpoints, (x, y), image.shape[:2], radius) 
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], detect_range) 
             
             # Show roi range.
             roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
@@ -378,7 +360,7 @@ if __name__=="__main__":
             myAnn.state.end_draggging()
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_radius(roi_dim, local_endpoints, (x, y), image.shape[:2], radius) 
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], detect_range) 
             
             points.append((n_x, n_y))  # Add end point
             myAnn.lines.append((points[0], points[1]))  # Store the line
@@ -404,92 +386,88 @@ if __name__=="__main__":
     # Load your image
     #image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
     #annotation_path = "/home/pywu/Downloads/zhong/line_annotator/UV-only/0727-0933-0272-img00_UV.bmp"  # Change to your actual path
+            
+    ### Use argparse to load default value to those variables.
+    args = parse_arguments()
+    save_path = args.save_path
+    demo_path = args.demo_path
+    image_root = args.image_root
+    annotation_root = args.annotation_root
 
-    image_root = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/"
-    annotation_root = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/"
-
-    image_set, annotation_set = read_data_pair(image_root, annotation_root)
-
-    # Initialize image selector
-    global current_image_index
-    current_image_index = 345
-    last_index = 345
-
-        # if current_image_index != last_index:
-        #     # Load and display the new image
-        #     image_path = image_set[current_image_index]
-        #     image = cv2.imread(image_path)
-        #     cv2.imshow('image', image)
-        #     last_index = current_image_index
-    # # For debug
-    # for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
-    #     if idx == current_image_index:
-    #         print(image_path, annotation_path)
-    #         break
-
-
-    image_path = image_set[current_image_index]
-    image = cv2.imread(image_path)
+    save_path_annotation = os.path.join(save_path, "annotation")
+    save_path_origin = os.path.join(save_path, "image")
+    save_path_combined = os.path.join(save_path, "combined")
+    os.makedirs(demo_path, exist_ok=True)
+    os.makedirs(save_path_annotation, exist_ok=True)
+    os.makedirs(save_path_origin, exist_ok=True)
+    os.makedirs(save_path_combined, exist_ok=True)
     
-    last_index = current_image_index
+    # Load the whole dataset
+    image_set, annotation_set = read_data_pairs(image_root, annotation_root)
     
     # Read the first image by selecting in tkinter.
-    image_path, annotation_path = select_image_annotation_pair(image_set, annotation_set)
+    global current_image_index
+    # current_image_index = 345
+    current_image_index = select_image_annotation_pair_by_index(image_set, annotation_set)
+    image_path = image_set[current_image_index]
+    annotation_path = annotation_set[current_image_index]
+    last_index = current_image_index
 
-    # Initialize
+    # Initialize annotator
     image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
-    # Initial display with description
-    
+        
     # Create a window and bind the callback function to the window
     cv2.namedWindow('image')
     cv2.setMouseCallback('image', mouse_handler)
     cv2.imshow('image', image)
 
     while True:
-        k = cv2.waitKey(0)
         # Initialize image if the index changes. 
-        if current_image_index != last_index:
+        print(current_image_index, last_index)
+        if last_index != current_image_index:
             # Load and display the new image
             image_path = image_set[current_image_index]
-            image = cv2.imread(image_path)
+            annotation_path = annotation_set[current_image_index]
+            # TODO: the image will be changed after saving. IDK why.
             
-            last_index = current_image_index
+            # # Read the first image by selecting in tkinter.
+            # image_path, annotation_path = select_image_annotation_pair_by_index(image_set, annotation_set)
             
-            # Read the first image by selecting in tkinter.
-            image_path, annotation_path = select_image_annotation_pair(image_set, annotation_set)
-
             # Initialize
             image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
             # Initial display with description
+            last_index = current_image_index
             cv2.imshow('image', image)
 
+        k = cv2.waitKey(0)
 
-        if k == ord('/'):  # Press 'n' to open the image selector
+        # ====== Press 'n' to open the image selector======
+        if k == ord('/'): 
             # threading.Thread(target=open_image_selector).start()
-            threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
+            # threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
+            current_image_index = select_image_annotation_pair_by_index(image_set, annotation_set)
 
-
-        # ====== Switch drawing mode (not implemented.) ======
+        # ====== Press 'x' to toggle drawing mode (not implemented.) ======
         elif k == ord('x'):
             # myAnn.state.drawing_mode = "scratch" if myAnn.state.drawing_mode == "line" else "line"
             # hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             hints = [f"Warning: Scratch mode not implemented."]
             print_on_console(hints)
             print_on_image(hints, image, myAnn)            
-        # # ====== [Default] Toggle nearest dragging mode ======
+        # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
         elif k == ord('n'):
             myAnn.state.drawing_mode = "nearest"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             print_on_console(hints)
             print_on_image(hints, image, myAnn) 
-        # ====== Toggle line mode ======
+        # ====== Press 'l' to toggle line mode ======
         elif k == ord('l'):
             myAnn.state.drawing_mode = "line"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             print_on_console(hints)
             print_on_image(hints, image, myAnn) 
 
-        # ====== Toggle consecutive dragging mode ======
+        # ====== Press 'c' to toggle consecutive dragging mode ======
         elif k == ord('c'):
             if myAnn.state.drawing_mode == "line":
                 myAnn.state.is_consecutive_line = not myAnn.state.is_consecutive_line
@@ -500,7 +478,7 @@ if __name__=="__main__":
                 hints = [f"Consecutive dragging is avaliable for drawing_mode only."]
                 print_on_console(hints)
 
-        # ====== Undo the last line drawn ======
+        # ====== Press 'u' to undo the last line drawn ======
         elif k == ord('u'):  
             if myAnn.lines:
                 myAnn.undone_lines.append(myAnn.lines.pop())  # Move the last line to undone list
@@ -511,7 +489,7 @@ if __name__=="__main__":
                     cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
-        # ====== Redo the last undone line ======
+        # ====== Press 'r' to redo the last undone line ======
         elif k == ord('r'):  
             if myAnn.undone_lines:
                 line = myAnn.undone_lines.pop()  # Get the last undone line
@@ -520,7 +498,7 @@ if __name__=="__main__":
                 cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
                 cv2.imshow('image', image)
                 print("[INFO] Redo.") 
-        # ====== Show/hide message ======
+        # ====== Press 'h' to show message ======
         elif k == ord('h'):  
             message = [
                 "============= Welcome to Line Annotator! =============",
@@ -530,14 +508,16 @@ if __name__=="__main__":
                 "[Default]: Nearest mode: 'n'",
                 "Line mode: 'l'",
                 "Scratch mode: 'x'",
-                "Leave and Save: 's'",
+                "Save annotation: 's'",
+                "Select another iamge: '/'",
                 "Leave without Saveing: 'esc'",
                 "=============== Author: Zhong-Wei Lin ===============", 
                 "Show all endpoints: 'p'",
             ]
             print_on_console(message)
+            print_on_image([os.path.basename(image_path)])
 
-        # ====== Toggle to print all endpoints ======
+        # ====== Press 'p' to toggle to print all endpoints ======
         elif k == ord('p'):  
             temp_image = image.copy()
             endpoints = detect_endpoints_local(annotation, myAnn.color)
@@ -552,34 +532,38 @@ if __name__=="__main__":
 
         # ====== Leave and Save ======
         elif k == ord('s'):  
-            save_path = "./demo/"
-
-            # Save the original image
-            cv2.imwrite(os.path.join(save_path, 'original_image.jpg'), image)
-
-            # Save the annotated image
-            os.makedirs(save_path, exist_ok=True)
-            cv2.imwrite(os.path.join(save_path, 'annotation_only.jpg'), annotation)
-
             # Optional: Combine original and annotation images for visualization
             combined_image = cv2.addWeighted(image, 1, annotation, 1, 0)
-            cv2.imwrite(os.path.join(save_path, 'combined_image.jpg'), combined_image)
-            print("[INFO] Save results at save_path.")
-            break
+
+            # Save demo
+            cv2.imwrite(os.path.join(demo_path, 'original_image.jpg'), image_backup)
+            cv2.imwrite(os.path.join(demo_path, 'annotation_only.jpg'), annotation)
+            cv2.imwrite(os.path.join(demo_path, 'combined_image.jpg'), combined_image)
+
+            # Save result
+            image_name = os.path.basename(image_path)
+            annotation_name = os.path.basename(annotation_path) 
+            cv2.imwrite(os.path.join(save_path_origin, image_name), image_backup)
+            cv2.imwrite(os.path.join(save_path_annotation, annotation_name), annotation)
+            cv2.imwrite(os.path.join(save_path_combined, f"combined_{image_name}"), combined_image)
+
+            message = [f"[INFO] Annotation is saved at {save_path}."]
+            # print_on_image(message, image, myAnn, font_size=0.5)
+            print_on_console(message)
+            # break
         # ====== ESC key to leave without saving ======
         elif k == 27: 
             print("[INFO] Leave without saving.")
             break
         # ====== Exception handeling (show hint) ======
         else: 
-
             instruction_image = image.copy()
             message = [
                 f"Current drawing mode: {myAnn.state.drawing_mode}",
                 "Press 'h' for help",
             ]
             print_on_console(message)
-            print_on_image(message, image, myAnn, font_size=0.5)
+            # print_on_image(message, image, myAnn, font_size=0.5)
 
     cv2.destroyAllWindows()
 

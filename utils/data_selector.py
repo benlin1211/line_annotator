@@ -53,9 +53,9 @@ def read_image_and_annotation(image_path, annotation_path):
     return image, annotation
 
 # ======================== Read image by Tkinter ========================
-def select_image_annotation_pair(image_set, annotation_set):
+def select_image_annotation_pair_by_index(image_set, annotation_set):
     root = tk.Tk()
-    root.title('Select Image and Annotation')
+    root.title('Select Image')
 
     # Variable to store the index of the selected pair
     selected_index = tk.IntVar(value=-1)
@@ -68,13 +68,14 @@ def select_image_annotation_pair(image_set, annotation_set):
     # Create listbox and populate it
     listbox = tk.Listbox(root, width=100, height=20)
     for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
-        listbox.insert(tk.END, f"{idx}: {image_path} - {annotation_path}")
+        img_name = os.path.basename(image_path)
+        listbox.insert(tk.END, f"{idx}: {img_name}")
     listbox.bind('<<ListboxSelect>>', on_select)
     listbox.pack()
 
     root.mainloop()  # Start the GUI event loop
 
     if selected_index.get() >= 0:  # If a selection was made
-        return image_set[selected_index.get()], annotation_set[selected_index.get()]
+        return selected_index.get() 
     else:
-        return None, None  # Or handle this case as you prefer
+        return None  # Or handle this case as you prefer
