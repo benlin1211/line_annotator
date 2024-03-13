@@ -347,11 +347,21 @@ if __name__=="__main__":
             roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
             roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
             temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
+
+            # Show stride range
+            overlay = temp_image.copy()
+            # Draw a circle
+            cv2.circle(overlay, (x, y), stride, (0, 255, 255), -1)  # Drawing the circle on the overlay
+            # Alpha value controls the transparency level (between 0 and 1)
+            alpha = 0.4
+            cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
+
             # Show all endpoints in rectangle with red color when dragging
             for (_px, _py) in local_endpoints:
                 px, py = local2global((_px, _py), (x,y), roi_dim, image.shape[:2])
                 # highlight size: 2
                 cv2.circle(temp_image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+                
 
             if n_x==x and n_y==y: # same point
                 # print(f"\r[INFO] Position: {x},{y}")
