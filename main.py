@@ -68,6 +68,10 @@ def parse_arguments():
     parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
     parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/', help='Root directory for images.')
     parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/', help='Root directory for annotations.')
+        
+    # Add stride and roi_dim arguments
+    parser.add_argument('--stride', type=int, default=10, help='Stride size for nearest mode adjustments.')
+    parser.add_argument('--roi_dim', type=int, default=101, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
     return args
@@ -134,7 +138,8 @@ def detect_endpoints_local(ROI, target_color):
     neighbor_count = convolve(binary_map.astype(np.uint8), kernel, mode='constant', cval=0)
     
     # Endpoints are segment pixels with exactly one neighbor
-    endpoints = (binary_map == 1) & (neighbor_count == 1)
+    # I relaxed to condition to scan single points as endpoints, too
+    endpoints = (binary_map == 1) & (neighbor_count <= 1)
 
     # Find nonzero elements (endpoints), returns in (y, x) format
     yx_coordinates = np.transpose(np.nonzero(endpoints))
@@ -301,14 +306,14 @@ if __name__=="__main__":
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
 
-        roi_dim = 101  # (5x5px)
-        detect_range = 8
+        # roi_dim = 101  # (5x5px)
+        # stride = 10
         if event == cv2.EVENT_LBUTTONDOWN:
             myAnn.state.start_dragging()
             # Start from the nearest point.
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], detect_range)  
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride)  
 
             # Same point: do nothing.
             if n_x==x and n_y==y:
@@ -322,9 +327,11 @@ if __name__=="__main__":
 
                 print(f"\r[INFO] Nearest point triggered: {n_x},{n_y}")
                 cv2.line(temp_image, (n_x, n_y), (x, y), myAnn.color, thickness=myAnn.thickness)
-                # Highlight the nearest point (n_x, n_y) with a red circle
+
+
+                # Highlight the nearest point (n_x, n_y) with a green circle
                 # # Note: n_x and n_y are reversed
-                cv2.circle(temp_image, (n_x, n_y), radius=1, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+                cv2.circle(temp_image, (n_x, n_y), radius=1, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
                 points = [(n_x, n_y)]
 
                 cv2.imshow('image', temp_image)
@@ -334,12 +341,17 @@ if __name__=="__main__":
             temp_image = image.copy()
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], detect_range) 
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride) 
             
             # Show roi range.
             roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
             roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
             temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
+            # Show all endpoints in rectangle with red color when dragging
+            for (_px, _py) in local_endpoints:
+                px, py = local2global((_px, _py), (x,y), roi_dim, image.shape[:2])
+                # highlight size: 2
+                cv2.circle(temp_image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
 
             if n_x==x and n_y==y: # same point
                 # print(f"\r[INFO] Position: {x},{y}")
@@ -347,11 +359,10 @@ if __name__=="__main__":
             else:
                 print(f"\r[INFO] Nearest point triggered: coordinate: {n_x},{n_y}")
                 cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
-                # Highlight the nearest point (n_x, n_y) with a red circle
-                for (_px, _py) in local_endpoints:
-                    px, py = local2global((_px, _py), (x,y), roi_dim, image.shape[:2])
-                    # highlight size: 2
-                    cv2.circle(temp_image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+                # Highlight the nearest point (n_x, n_y) with a green circle
+                cv2.circle(temp_image, points[0], radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
+                cv2.circle(temp_image, (n_x, n_y), radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
+
     
             cv2.imshow('image', temp_image)
             # print(f"Current pos: {n_x}, {n_y}")
@@ -360,7 +371,7 @@ if __name__=="__main__":
             myAnn.state.end_draggging()
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], detect_range) 
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride) 
             
             points.append((n_x, n_y))  # Add end point
             myAnn.lines.append((points[0], points[1]))  # Store the line
@@ -421,6 +432,12 @@ if __name__=="__main__":
     cv2.setMouseCallback('image', mouse_handler)
     cv2.imshow('image', image)
 
+    # Use global to make callback function sees the variable
+    global stride, roi_dim
+    stride = args.stride
+    roi_dim = args.roi_dim
+
+    # ================================== Main program ==================================
     while True:
         # Initialize image if the index changes. 
         print(current_image_index, last_index)
@@ -440,7 +457,7 @@ if __name__=="__main__":
             cv2.imshow('image', image)
 
         k = cv2.waitKey(0)
-
+        print(k)
         # ====== Press 'n' to open the image selector======
         if k == ord('/'): 
             # threading.Thread(target=open_image_selector).start()
@@ -513,6 +530,8 @@ if __name__=="__main__":
                 "Leave without Saveing: 'esc'",
                 "=============== Author: Zhong-Wei Lin ===============", 
                 "Show all endpoints: 'p'",
+                "Decrease stride: left arrow key",
+                "Increase stride: right arrow key",
             ]
             print_on_console(message)
             print_on_image([os.path.basename(image_path)])
@@ -555,7 +574,21 @@ if __name__=="__main__":
         elif k == 27: 
             print("[INFO] Leave without saving.")
             break
-        # ====== Exception handeling (show hint) ======
+
+        # ====== Decrease stride size with left arrow key ======
+        elif k == 81:  
+            stride = max(1, stride - 1)
+            message = [f"[INFO] stride decreased to {stride}."]
+            print_on_console(message)
+        
+        # ====== Increase stride size with right arrow key ======
+        elif k == 83: 
+            max_stride = roi_dim // 2  # Calculate the max stride based on roi_dim
+            stride = min(max_stride, stride + 1)
+            message = [f"[INFO] stride increased to {stride}."]
+            print_on_console(message)        
+            # ====== Exception handeling (show hint) ======
+
         else: 
             instruction_image = image.copy()
             message = [
@@ -565,5 +598,6 @@ if __name__=="__main__":
             print_on_console(message)
             # print_on_image(message, image, myAnn, font_size=0.5)
 
+    # ================================== End main program ==================================
     cv2.destroyAllWindows()
 
