@@ -30,3 +30,15 @@ def print_on_image(info_list, image, myAnn, duration=2000, num_frame=25, font_si
         if cv2.waitKey(1000//num_frame) != -1:  # Wait for 100 ms between frames
             myAnn.state.leave_hint=True
     cv2.imshow('image', image)
+
+
+def background_toggler(image, annotation, show_background):
+    if show_background:
+        # Show image with annotations
+        combined_image = cv2.addWeighted(image, 1, annotation, 1, 0)
+        # cv2.imshow('image', combined_image)
+        return combined_image
+    else:
+        # Show annotations only
+        # cv2.imshow('image', image)
+        return annotation

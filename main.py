@@ -7,7 +7,7 @@ import glob, re
 # import tkinter as tk
 # from tkinter import ttk
 from utils.data_selector import select_image_annotation_pair_by_index, read_image_and_annotation #, run_selector_app
-from utils.printer import print_on_console, print_on_image
+from utils.printer import print_on_console, print_on_image, background_toggler
 import threading
 
 import tkinter as tk
@@ -436,7 +436,11 @@ if __name__=="__main__":
 
     # Initialize annotator
     image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
-        
+    
+    # Show image with annotation, or annotation only.
+    show_background=True
+    image = background_toggler(image_backup, annotation, show_background)
+
     # Create a window and bind the callback function to the window
     cv2.namedWindow('image')
     cv2.setMouseCallback('image', mouse_handler)
@@ -450,7 +454,7 @@ if __name__=="__main__":
     # ================================== Main program ==================================
     while True:
         # Initialize image if the index changes. 
-        print(current_image_index, last_index)
+        print(f"Current_image_index={current_image_index}")
         if last_index != current_image_index:
             # Load and display the new image
             image_path = image_set[current_image_index]
@@ -462,12 +466,16 @@ if __name__=="__main__":
             
             # Initialize
             image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+            ## image: 正在畫的圖
+            ## annotation: 正在畫的標註
+            ## image_backup: 原圖
+            ## annotation_backup: 標註紀錄（for undo）
+
             # Initial display with description
             last_index = current_image_index
             cv2.imshow('image', image)
 
         k = cv2.waitKey(0)
-        print(k)
         # ====== Press 'n' to open the image selector======
         if k == ord('/'): 
             # threading.Thread(target=open_image_selector).start()
@@ -597,8 +605,12 @@ if __name__=="__main__":
             stride = min(max_stride, stride + 1)
             message = [f"[INFO] stride increased to {stride}."]
             print_on_console(message)        
-            # ====== Exception handeling (show hint) ======
-
+        # ====== to show annotation only ======
+        elif k == ord('a'):
+            show_background = not show_background 
+            image = background_toggler(image_backup, annotation, show_background)
+            cv2.imshow('image', image)
+        # ====== Exception handeling (show hint) ======
         else: 
             instruction_image = image.copy()
             message = [
