@@ -80,11 +80,14 @@ def parse_arguments():
 def read_data_pairs(image_set, annotation_set):
     annotation_set = sorted(glob.glob(os.path.join(annotation_root, "*.bmp")))
     sequence_numbers = []
+
+    # Read annotation first.
     for a in annotation_set:
         number = os.path.basename(a).split("-")[-2]
         sequence_numbers.append(number)
 
     pattern = re.compile(r"-img0[0-2]\.bmp$")
+     # Read image referring to annotation.
     image_set = sorted([name for name in glob.glob(os.path.join(image_root, "*.bmp")) \
                         if (pattern.search(name) and os.path.basename(name).split("-")[-2] in sequence_numbers)])
     # for p in image_set:
@@ -404,10 +407,7 @@ if __name__=="__main__":
         elif myAnn.state.drawing_mode == "nearest":
             handle_nearest_mode(event, x, y, flags, param)
 
-    # Load your image
-    #image_path = "/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/0727-0933-0272-img00.bmp"
-    #annotation_path = "/home/pywu/Downloads/zhong/line_annotator/UV-only/0727-0933-0272-img00_UV.bmp"  # Change to your actual path
-            
+
     ### Use argparse to load default value to those variables.
     args = parse_arguments()
     save_path = args.save_path
@@ -436,7 +436,7 @@ if __name__=="__main__":
 
     # Initialize annotator
     image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
-    
+
     # Show image with annotation, or annotation only.
     show_background=True
     image = background_toggler(image_backup, annotation, show_background)
