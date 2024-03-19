@@ -515,12 +515,15 @@ if __name__=="__main__":
 
         # ====== Press 'u' to undo the last line drawn ======
         elif k == ord('u'):  
+            print(len( myAnn.lines))
             if myAnn.lines:
                 myAnn.undone_lines.append(myAnn.lines.pop())  # Move the last line to undone list
-                image = image_backup.copy()  # Restore the previous state
+                image = image_backup.copy() if show_background else annotation_backup.copy() # Restore the previous state
                 annotation = annotation_backup.copy()  # Restore the previous state
-                for line in myAnn.lines:  # Redraw remaining lines
+                for line in myAnn.lines: 
+                    # Redraw remaining lines
                     cv2.line(image, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
+                     # Redraw recorded lines
                     cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
@@ -606,7 +609,7 @@ if __name__=="__main__":
             message = [f"[INFO] stride increased to {stride}."]
             print_on_console(message)        
         # ====== to show annotation only ======
-        elif k == ord('a'):
+        elif k == ord('b'):
             show_background = not show_background 
             image = background_toggler(image_backup, annotation, show_background)
             cv2.imshow('image', image)

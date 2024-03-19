@@ -1,5 +1,6 @@
 opencv-python==4.9.0.80
 scipy==1.12.0
 scikit-image==0.22.0
+tqdm==4.66.2
 # conda install pyqt -y
 # export QT_QPA_PLATFORM_PLUGIN_PATH=/home/pywu/anaconda3/lib/python3.10/site-packages/PyQt5/Qt/plugins
