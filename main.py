@@ -214,19 +214,27 @@ def add_semi_transparent_rectangle(image, top_left, bottom_right, color, alpha):
     return cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
 
 
-# def initialize_annotator(image_path, annotation_path):
+def initialize_annotator(image_path, annotation_path):
 
-#     image, annotation = read_image_and_annotation(image_path, annotation_path)
+    image = cv2.imread(image_path)
+    annotation = np.zeros_like(image)
+    
+    # Load previous annotations
+    if os.path.exists(annotation_path):
+        print(f"[INFO] Load existing annotation from {annotation_path}")
+        annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
+        if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
+            annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
+    
+    # Create Backups 
+    temp_image = image.copy()  # Temporary image for showing the line preview
+    image_backup = image.copy() # Backup image for undo functionality
+    annotation_backup = annotation.copy() # Backup image for undo functionality
 
-#     # Create Backups 
-#     temp_image = image.copy()  # Temporary image for showing the line preview
-#     image_backup = cv2.imread(image_path) # Backup image for undo functionality
-#     annotation_backup = annotation.copy() # Backup image for undo functionality
-
-#     # Create Annotator 
-#     myAnn = Annotator()
-
-#     return image, annotation, temp_image, image_backup, annotation_backup, myAnn
+    # Create Annotator 
+    myAnn = Annotator()
+    
+    return image, annotation, temp_image, image_backup, annotation_backup, myAnn
 
 
 # # This function runs the PyQt app in a separate thread
@@ -428,24 +436,28 @@ if __name__=="__main__":
     last_index = current_image_index
 
     # Initialize annotator
-    # image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
-    image = cv2.imread(image_path)
-    annotation = np.zeros_like(image)
+    image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+    ## image: 正在畫的圖
+    ## annotation: 正在畫的標註
+    ## image_backup: 原圖
+    ## annotation_backup: 標註紀錄（for undo）
+    # image = cv2.imread(image_path)
+    # annotation = np.zeros_like(image)
     
-    # Load previous annotations
-    if os.path.exists(annotation_path):
-        print(f"[INFO] Load existing annotation from {annotation_path}")
-        annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
-        if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
-            annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
+    # # Load previous annotations
+    # if os.path.exists(annotation_path):
+    #     print(f"[INFO] Load existing annotation from {annotation_path}")
+    #     annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
+    #     if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
+    #         annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
        
-    # Create Backups 
-    temp_image = image.copy()  # Temporary image for showing the line preview
-    image_backup = image.copy() # Backup image for undo functionality
-    annotation_backup = annotation.copy() # Backup image for undo functionality
+    # # Create Backups 
+    # temp_image = image.copy()  # Temporary image for showing the line preview
+    # image_backup = image.copy() # Backup image for undo functionality
+    # annotation_backup = annotation.copy() # Backup image for undo functionality
 
-    # Create Annotator 
-    myAnn = Annotator()
+    # # Create Annotator 
+    # myAnn = Annotator()
 
     # Plot previous annotations on image. 
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
@@ -483,6 +495,9 @@ if __name__=="__main__":
             ## annotation: 正在畫的標註
             ## image_backup: 原圖
             ## annotation_backup: 標註紀錄（for undo）
+
+            # Plot previous annotations on image. 
+            image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
             # Initial display with description
             last_index = current_image_index
