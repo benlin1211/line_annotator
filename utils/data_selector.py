@@ -45,8 +45,6 @@ def read_image_and_annotation(image_path, annotation_path):
         annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
         if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
             annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
-        # Plot previous annotations on image. 
-        image = cv2.addWeighted(image, 1, annotation, 1, 0)
     else:
         # Create a blank image (black image) for drawing annotations
         annotation = np.zeros_like(image)

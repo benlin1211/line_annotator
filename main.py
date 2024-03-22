@@ -46,7 +46,7 @@ class AnnotatorState():
         self.leave_hint = False # Flag to record if hint info should disappear
         self.leave_help = False # Flag to record if help info should disappear
         self.is_consecutive_line = None # Add a flag for consecutive drawing mode.
-        self.drawing_mode = "nearest" # ["nearest", "eraser"]
+        self.drawing_mode = "draw" # ["draw", "eraser"]
         
         self.immediately_draw=False
 
@@ -72,7 +72,7 @@ def parse_arguments():
     parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/', help='Root directory for annotations.')
         
     # Add stride and roi_dim arguments
-    parser.add_argument('--stride', type=int, default=10, help='Stride size for nearest mode adjustments.')
+    parser.add_argument('--stride_draw', type=int, default=10, help='Stride size for draw mode adjustments.')
     parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
@@ -319,7 +319,7 @@ if __name__=="__main__":
             # Start from the nearest point.
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride)  
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride_draw)  
 
             # Same point: do nothing.
             if n_x==x and n_y==y:
@@ -346,7 +346,7 @@ if __name__=="__main__":
             temp_image = image.copy()
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride) 
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride_draw) 
             
             # Show roi range.
             roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
@@ -356,7 +356,7 @@ if __name__=="__main__":
             # Show stride range
             overlay = temp_image.copy()
             # Draw a circle
-            cv2.circle(overlay, (x, y), stride, (0, 255, 255), -1)  # Drawing the circle on the overlay
+            cv2.circle(overlay, (x, y), stride_draw, (0, 255, 255), -1)  # Drawing the circle on the overlay
             # Alpha value controls the transparency level (between 0 and 1)
             alpha = 0.4
             cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
@@ -386,7 +386,7 @@ if __name__=="__main__":
             myAnn.state.end_draggging()
             ROI = extract_sub_image(annotation, x, y, roi_dim)
             local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride) 
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride_draw) 
             
             points.append((n_x, n_y))  # Add end point
             action = Action('line', {'line':(points[0], points[1])})
@@ -402,7 +402,7 @@ if __name__=="__main__":
     ## ===================== Main handler ============================
     def mouse_handler(event, x, y, flags, param):
         global points, image, temp_image, myAnn
-        if myAnn.state.drawing_mode == "nearest":
+        if myAnn.state.drawing_mode == "draw":
             handle_nearest_mode(event, x, y, flags, param)
         elif myAnn.state.drawing_mode == "eraser":
             handle_eraser_mode(event, x, y, flags, param)
@@ -441,23 +441,6 @@ if __name__=="__main__":
     ## annotation: 正在畫的標註
     ## image_backup: 原圖
     ## annotation_backup: 標註紀錄（for undo）
-    # image = cv2.imread(image_path)
-    # annotation = np.zeros_like(image)
-    
-    # # Load previous annotations
-    # if os.path.exists(annotation_path):
-    #     print(f"[INFO] Load existing annotation from {annotation_path}")
-    #     annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
-    #     if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
-    #         annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
-       
-    # # Create Backups 
-    # temp_image = image.copy()  # Temporary image for showing the line preview
-    # image_backup = image.copy() # Backup image for undo functionality
-    # annotation_backup = annotation.copy() # Backup image for undo functionality
-
-    # # Create Annotator 
-    # myAnn = Annotator()
 
     # Plot previous annotations on image. 
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
@@ -471,8 +454,9 @@ if __name__=="__main__":
     cv2.imshow('image', image)
 
     # Use global to make callback function sees the variable
-    global stride, roi_dim
-    stride = args.stride
+    global stride_draw, roi_dim
+    stride_draw = args.stride_draw
+    # stride_erase = args.stride_erase
     roi_dim = args.roi_dim
 
     # ================================== Main program ==================================
@@ -510,14 +494,14 @@ if __name__=="__main__":
             # threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
             current_image_index = select_image_annotation_pair_by_index(image_set, annotation_set)
         # ====== Press 'e' to toggle erase mode ====== 
-        elif k == ord('e'):
+        elif k == ord('o'):
             myAnn.state.drawing_mode = "eraser"
             hints = [f"Switched to limited eraser mode."]
             print_on_console(hints)
             # print_on_image(hints, image, myAnn) 
         # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
-        elif k == ord('n'):
-            myAnn.state.drawing_mode = "nearest"
+        elif k == ord('i'):
+            myAnn.state.drawing_mode = "draw"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             print_on_console(hints)
             # print_on_image(hints, image, myAnn) 
@@ -532,8 +516,8 @@ if __name__=="__main__":
                 hints = [f"Consecutive dragging is avaliable for drawing_mode only."]
                 print_on_console(hints)
 
-        # ====== Press 'u' or left arrow key to undo the last line drawn ======
-        elif k == ord('u') or k == 81:  
+        # ====== Press 'u' to undo the last line drawn ======
+        elif k == ord('u'):  
             print(len( myAnn.actions))
             if myAnn.actions:
                 # Move the last line to undone list
@@ -583,16 +567,19 @@ if __name__=="__main__":
             message = [
                 "============= Welcome to Line Annotator! =============",
                 "Press left click to draw a line.",
-                "Undo: 'u' or 'left arrow key ",
-                "Redo: 'r' or 'right arrow key' ",
-                "[Default]: Nearest mode: 'n'",
+                "[Default]: Draw mode: 'i'",
+                "Eraser mode: 'o'",
+                "=============== Load and Save ===============", 
                 "Save annotation: 's'",
-                "Select another iamge: '/'",
+                "Load another iamge: '/'",
+                "Load previous annotations: '.'",
                 "Leave without Saveing: 'esc'",
-                "=============== Author: Zhong-Wei Lin ===============", 
+                "=============== Tools ===============", 
+                "Undo: 'u' ",
+                "Redo: 'r' ",
                 "Show all endpoints: 'p'",
-                "Decrease stride: 'i'",
-                "Increase stride: 'o'",
+                "Decrease stride: 'left arrow key'",
+                "Increase stride: 'right arrow key'",
             ]
             print_on_console(message)
             # print_on_image([os.path.basename(image_path)])
@@ -637,17 +624,18 @@ if __name__=="__main__":
             break
 
         # ====== Decrease stride size with left arrow key ======
-        elif k == ord('i'):  
-            stride = max(1, stride - 1)
-            message = [f"[INFO] stride decreased to {stride}."]
+        elif k == 81:  
+            stride_draw = max(1, stride - 1)
+            message = [f"[INFO] stride decreased to {stride_draw}."]
             print_on_console(message)
         
         # ====== Increase stride size with right arrow key ======
-        elif k == ord('o'): 
-            max_stride = roi_dim // 2  # Calculate the max stride based on roi_dim
-            stride = min(max_stride, stride + 1)
-            message = [f"[INFO] stride increased to {stride}."]
-            print_on_console(message)        
+        elif k == 83: 
+            max_stride_draw = roi_dim // 2  # Calculate the max stride based on roi_dim
+            stride_draw = min(max_stride_draw, stride_draw + 1)
+            message = [f"[INFO] stride increased to {stride_draw}."]
+            print_on_console(message)     
+
         # ====== Toggle background ======
         elif k == ord('b'):
             myAnn.show_background = not myAnn.show_background 
@@ -659,6 +647,8 @@ if __name__=="__main__":
             if new_annotation_path:
                 # Update the display or any internal state as necessary
                 image, annotation = read_image_and_annotation(image_path, new_annotation_path)
+                # Plot previous annotations on image. 
+                image = cv2.addWeighted(image, 1, annotation, 1, 0)
                 print(f"Loaded annotation from {new_annotation_path}")
                 cv2.imshow('image', image)
             else:
