@@ -9,7 +9,7 @@ import glob, re
 from utils.data_selector import select_image_annotation_pair_by_index, \
                                 read_image_and_annotation, \
                                 select_existing_annotation #, run_selector_app
-from utils.printer import print_on_console, print_on_image, background_toggler
+from utils.printer import print_on_console, background_toggler #, print_on_image
 import threading
 
 import tkinter as tk
@@ -18,10 +18,11 @@ import argparse
 
 
 class Action():
-    def __init__(self, action_type, details, prev_annotation=None):
+    def __init__(self, action_type: str, details: dict):
         self.action_type = action_type  # 'line' or 'erase'
-        self.details = details  # Line coordinates or eraser circle center+radius
-        self.prev_annotation = prev_annotation # For eraser undo/redo
+        self.details = details 
+        # line: line
+        # erase: center, erase_radius
 
 class Annotator():
     def __init__(self) -> None:
@@ -212,19 +213,19 @@ def add_semi_transparent_rectangle(image, top_left, bottom_right, color, alpha):
     return cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
 
 
-def initialize_annotator(image_path, annotation_path):
+# def initialize_annotator(image_path, annotation_path):
 
-    image, annotation = read_image_and_annotation(image_path, annotation_path)
+#     image, annotation = read_image_and_annotation(image_path, annotation_path)
 
-    # Create Backups 
-    temp_image = image.copy()  # Temporary image for showing the line preview
-    image_backup = cv2.imread(image_path) # Backup image for undo functionality
-    annotation_backup = annotation.copy() # Backup image for undo functionality
+#     # Create Backups 
+#     temp_image = image.copy()  # Temporary image for showing the line preview
+#     image_backup = cv2.imread(image_path) # Backup image for undo functionality
+#     annotation_backup = annotation.copy() # Backup image for undo functionality
 
-    # Create Annotator 
-    myAnn = Annotator()
+#     # Create Annotator 
+#     myAnn = Annotator()
 
-    return image, annotation, temp_image, image_backup, annotation_backup, myAnn
+#     return image, annotation, temp_image, image_backup, annotation_backup, myAnn
 
 
 # # This function runs the PyQt app in a separate thread
@@ -265,17 +266,35 @@ if __name__=="__main__":
     # ============ Callback function to capture mouse events ============
 
     def handle_eraser_mode(event, x, y, flags, param):
-        global points, image, temp_image, annotation, myAnn
+        global points, image, temp_image, annotation, annotation_backup, myAnn
+        if event == cv2.EVENT_MOUSEMOVE:
+            temp_image = image.copy()
+            # Show stride range
+            overlay = temp_image.copy()
+            # Draw a circle
+            cv2.circle(overlay, (x, y), stride, (0, 255, 255), -1)  # Drawing the circle on the overlay
+            # Alpha value controls the transparency level (between 0 and 1)
+            alpha = 0.4
+            cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
+
         if event == cv2.EVENT_LBUTTONDOWN:
             # Erasing by drawing a circle of the background color on annotation
             # Adjust the radius to change the eraser size
             eraser_radius = 10
-            action = Action('erase', ((x, y), eraser_radius), annotation.copy())
-            myAnn.actions.append(action)  # Store the line as an action
+            # action = Action('erase', { "center": (x, y), "erase_radius": eraser_radius)
+            # myAnn.actions.append(action)  # Store the line as an action
+
             cv2.circle(annotation, (x, y), radius=eraser_radius, color=(0, 0, 0), thickness=-1)
             # Redraw the whole image
             image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
             cv2.imshow('image', image)
+            ## Once the erase mode is used, ALL action stacks will be cleaned up.
+            # TODO: I can't come up with a better idea...
+            # Update annotation 
+            annotation_backup = annotation
+            # Also clear ALL history.
+            myAnn.undone_actions = [] 
+            myAnn.actions = [] 
 
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
@@ -335,14 +354,14 @@ if __name__=="__main__":
                 # highlight size: 2
                 cv2.circle(temp_image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
                 
-
+            # Point determinator
             if n_x==x and n_y==y: # same point
                 # print(f"\r[INFO] Position: {x},{y}")
                 cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
             else:
                 print(f"\r[INFO] Nearest point triggered: coordinate: {n_x},{n_y}")
                 cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
-                # Highlight the nearest point (n_x, n_y) with a green circle
+                # Highlight the nearest point pair (n_x, n_y) with a green circle
                 cv2.circle(temp_image, points[0], radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
                 cv2.circle(temp_image, (n_x, n_y), radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
 
@@ -357,7 +376,7 @@ if __name__=="__main__":
             n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride) 
             
             points.append((n_x, n_y))  # Add end point
-            action = Action('line', (points[0], points[1]))
+            action = Action('line', {'line':(points[0], points[1])})
             myAnn.actions.append(action)  # Store the line as an action
 
             cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
@@ -366,7 +385,6 @@ if __name__=="__main__":
             cv2.imshow('image', image)  # Show the image with the final line
             ## Also clear redo history.
             myAnn.undone_actions = [] 
-            # print(f"Current pos: {n_x}, {n_y}")
 
     ## ===================== Main handler ============================
     def mouse_handler(event, x, y, flags, param):
@@ -405,7 +423,27 @@ if __name__=="__main__":
     last_index = current_image_index
 
     # Initialize annotator
-    image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+    # image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+    image = cv2.imread(image_path)
+    annotation = np.zeros_like(image)
+    
+    # Load previous annotations
+    if os.path.exists(annotation_path):
+        print(f"[INFO] Load existing annotation from {annotation_path}")
+        annotation = cv2.imread(annotation_path, cv2.IMREAD_UNCHANGED)
+        if annotation.ndim == 2 or annotation.shape[2] == 1:  # If the loaded annotation is grayscale
+            annotation = cv2.cvtColor(annotation, cv2.COLOR_GRAY2BGR)
+       
+    # Create Backups 
+    temp_image = image.copy()  # Temporary image for showing the line preview
+    image_backup = image.copy() # Backup image for undo functionality
+    annotation_backup = annotation.copy() # Backup image for undo functionality
+
+    # Create Annotator 
+    myAnn = Annotator()
+
+    # Plot previous annotations on image. 
+    image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
     # Show image with annotation, or annotation only.
     show_background=True
@@ -457,20 +495,20 @@ if __name__=="__main__":
             myAnn.state.drawing_mode = "eraser"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             print_on_console(hints)
-            print_on_image(hints, image, myAnn) 
+            # print_on_image(hints, image, myAnn) 
         # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
         elif k == ord('n'):
             myAnn.state.drawing_mode = "nearest"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             print_on_console(hints)
-            print_on_image(hints, image, myAnn) 
+            # print_on_image(hints, image, myAnn) 
         # ====== Press 'c' to toggle consecutive dragging mode ======
         elif k == ord('c'):
             if myAnn.state.drawing_mode == "line":
                 myAnn.state.is_consecutive_line = not myAnn.state.is_consecutive_line
                 hints = [f" {'Enable' if myAnn.state.is_consecutive_line else 'Disable'} consecutive dragging mode."]
                 print_on_console(hints)
-                print_on_image(hints, image, myAnn)
+                # print_on_image(hints, image, myAnn)
             else:
                 hints = [f"Consecutive dragging is avaliable for drawing_mode only."]
                 print_on_console(hints)
@@ -479,22 +517,27 @@ if __name__=="__main__":
         elif k == ord('u') or k == 81:  
             print(len( myAnn.actions))
             if myAnn.actions:
-                myAnn.undone_actions.append(myAnn.actions.pop())  # Move the last line to undone list
+                # Move the last line to undone list
+                myAnn.undone_actions.append(myAnn.actions.pop())  
+                # init 
                 image = image_backup.copy() if show_background else annotation_backup.copy()  # Restore the previous state
-                annotation = annotation_backup.copy()  # Restore the previous state
-
+                annotation = annotation_backup.copy() 
+                # Redo the remaining actions.
                 for action in myAnn.actions: 
                     print(action.action_type)
                     if action.action_type == "line":
-                        line = action.details
-                        # Redraw remaining lines
-                        cv2.line(image, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
+                        line = action.details["line"]
+                        
                         # Redraw recorded lines
                         cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
-                    elif action.action_type == "erase":
-                        pass
+                        ## Redraw remaining lines
+                        # cv2.line(image, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
+                    # elif action.action_type == "erase":
+                    #     x, y = action.details["center"]
+                    #     erase_radius = action.details["erase_radius"]
+                    #     cv2.circle(annotation, (x, y), radius=erase_radius, color=(0, 0, 0), thickness=-1)
 
-                # Redraw the annotation on image.
+                # Redraw the annotation result on image.
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
@@ -503,12 +546,17 @@ if __name__=="__main__":
             if myAnn.undone_actions:
                 action = myAnn.undone_actions.pop()  # Get the last undone line
                 myAnn.actions.append(action)  # Move it back to lines list
+                for action in myAnn.actions: 
+                    print(action.action_type)
                 if action.action_type == "line":
-                    line = action.details
-                    cv2.line(image, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
+                    line = action.details["line"]
                     cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
-                elif action.action_type == "erase":
-                    pass
+                    # Redraw the annotation result on image.
+                    image = cv2.addWeighted(image, 1, annotation, 1, 0)
+                # elif action.action_type == "erase":
+                #     image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
+
+                
                 cv2.imshow('image', image)
                 print("[INFO] Redo.") 
         # ====== Press 'h' to show message ======
@@ -528,7 +576,7 @@ if __name__=="__main__":
                 "Increase stride: 'o'",
             ]
             print_on_console(message)
-            print_on_image([os.path.basename(image_path)])
+            # print_on_image([os.path.basename(image_path)])
 
         # ====== Press 'p' to toggle to print all endpoints ======
         elif k == ord('p'):  
