@@ -73,7 +73,7 @@ def parse_arguments():
         
     # Add stride and roi_dim arguments
     parser.add_argument('--stride_draw', type=int, default=10, help='Stride size for draw mode adjustments.')
-    parser.add_argument('--stride_erase', type=int, default=10, help='Stride size for erase mode adjustments.')
+    parser.add_argument('--stride_eraser', type=int, default=10, help='Stride size for erase mode adjustments.')
     parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
@@ -277,15 +277,16 @@ if __name__=="__main__":
 
     def handle_eraser_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, annotation_backup, myAnn
-        # if event == cv2.EVENT_MOUSEMOVE:
-        #     temp_image = image.copy()
-        #     # Show stride range
-        #     overlay = temp_image.copy()
-        #     # Draw a circle
-        #     cv2.circle(overlay, (x, y), stride, (0, 255, 255), -1)  # Drawing the circle on the overlay
-        #     # Alpha value controls the transparency level (between 0 and 1)
-        #     alpha = 0.4
-        #     cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
+        if event == cv2.EVENT_MOUSEMOVE:
+            temp_image = image.copy()
+            # Show stride range
+            overlay = temp_image.copy()
+            # Draw a circle
+            cv2.circle(overlay, (x, y), stride_eraser, (0, 255, 255), -1)  # Drawing the circle on the overlay
+            # Alpha value controls the transparency level (between 0 and 1)
+            alpha = 0.4
+            cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
+            cv2.imshow('image', temp_image)
 
         if event == cv2.EVENT_LBUTTONDOWN:
             # Erasing by drawing a circle of the background color on annotation
@@ -293,7 +294,7 @@ if __name__=="__main__":
             # action = Action('erase', { "center": (x, y), "erase_radius": eraser_radius)
             # myAnn.actions.append(action)  # Store the line as an action
 
-            cv2.circle(annotation, (x, y), radius=stride_erase, color=(0, 0, 0), thickness=-1)
+            cv2.circle(annotation, (x, y), radius=stride_eraser, color=(0, 0, 0), thickness=-1)
             # Redraw the whole image
             if myAnn.show_background:
                 image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
@@ -343,16 +344,8 @@ if __name__=="__main__":
                 cv2.imshow('image', temp_image)
                 
 
-        elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
+        elif event == cv2.EVENT_MOUSEMOVE:
             temp_image = image.copy()
-            ROI = extract_sub_image(annotation, x, y, roi_dim)
-            local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride_draw) 
-            
-            # Show roi range.
-            roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
-            roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
-            temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
 
             # Show stride range
             overlay = temp_image.copy()
@@ -362,23 +355,33 @@ if __name__=="__main__":
             alpha = 0.4
             cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
 
-            # Show all endpoints in rectangle with red color when dragging
-            for (_px, _py) in local_endpoints:
-                px, py = local2global((_px, _py), (x,y), roi_dim, image.shape[:2])
-                # highlight size: 2
-                cv2.circle(temp_image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+            if myAnn.state.is_dragging:
+                ROI = extract_sub_image(annotation, x, y, roi_dim)
+                local_endpoints = detect_endpoints_local(ROI, myAnn.color)
+                n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride_draw) 
                 
-            # Point determinator
-            if n_x==x and n_y==y: # same point
-                # print(f"\r[INFO] Position: {x},{y}")
-                cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
-            else:
-                print(f"\r[INFO] Nearest point triggered: coordinate: {n_x},{n_y}")
-                cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
-                # Highlight the nearest point pair (n_x, n_y) with a green circle
-                cv2.circle(temp_image, points[0], radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
-                cv2.circle(temp_image, (n_x, n_y), radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
+                # Show roi range.
+                roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
+                roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
+                temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
 
+
+                # Show all endpoints in rectangle with red color when dragging
+                for (_px, _py) in local_endpoints:
+                    px, py = local2global((_px, _py), (x,y), roi_dim, image.shape[:2])
+                    # highlight size: 2
+                    cv2.circle(temp_image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+                    
+                # Point determinator
+                if n_x==x and n_y==y: # same point
+                    # print(f"\r[INFO] Position: {x},{y}")
+                    cv2.line(temp_image, points[0], (x, y), myAnn.color, thickness=myAnn.thickness)
+                else:
+                    print(f"\r[INFO] Nearest point triggered: coordinate: {n_x},{n_y}")
+                    cv2.line(temp_image, points[0], (n_x, n_y), myAnn.color, thickness=myAnn.thickness)
+                    # Highlight the nearest point pair (n_x, n_y) with a green circle
+                    cv2.circle(temp_image, points[0], radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
+                    cv2.circle(temp_image, (n_x, n_y), radius=2, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
     
             cv2.imshow('image', temp_image)
             # print(f"Current pos: {n_x}, {n_y}")
@@ -455,9 +458,9 @@ if __name__=="__main__":
     cv2.imshow('image', image)
 
     # Use global to make callback function sees the variable
-    global stride_draw, roi_dim, stride_erase
+    global stride_draw, roi_dim, stride_eraser
     stride_draw = args.stride_draw
-    stride_erase = args.stride_erase
+    stride_eraser = args.stride_eraser
     roi_dim = args.roi_dim
 
     # ================================== Main program ==================================
@@ -630,8 +633,8 @@ if __name__=="__main__":
                 stride_draw = max(1, stride_draw - 1)
                 message = [f"[INFO] Drawing stride decreased to {stride_draw}."]
             elif myAnn.state.drawing_mode == "eraser":
-                stride_erase = max(1, stride_erase - 1)
-                message = [f"[INFO] Drawing stride decreased to {stride_erase}."] 
+                stride_eraser = max(1, stride_eraser - 1)
+                message = [f"[INFO] Drawing stride decreased to {stride_eraser}."] 
             print_on_console(message)
         
         # ====== Increase stride size with right arrow key ======
@@ -641,9 +644,9 @@ if __name__=="__main__":
                 stride_draw = min(max_stride_draw, stride_draw + 1)
                 message = [f"[INFO] Drawing stride increased to {stride_draw}."]
             if myAnn.state.drawing_mode == "eraser":
-                max_stride_erase = roi_dim // 2  # Calculate the max stride based on roi_dim
-                stride_erase = min(max_stride_erase, stride_erase + 1)
-                message = [f"[INFO] Drawing stride increased to {stride_erase}."]
+                max_stride_eraser = roi_dim // 2  # Calculate the max stride based on roi_dim
+                stride_eraser = min(max_stride_eraser, stride_eraser + 1)
+                message = [f"[INFO] Drawing stride increased to {stride_eraser}."]
             print_on_console(message)     
 
         # ====== Toggle background ======
