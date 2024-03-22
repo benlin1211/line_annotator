@@ -282,7 +282,7 @@ if __name__=="__main__":
             # Show stride range
             overlay = temp_image.copy()
             # Draw a circle
-            cv2.circle(overlay, (x, y), stride_eraser, (0, 255, 255), -1)  # Drawing the circle on the overlay
+            cv2.circle(overlay, (x, y), stride_eraser, (255, 255, 0), -1)  # Drawing the circle on the overlay
             # Alpha value controls the transparency level (between 0 and 1)
             alpha = 0.4
             cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
@@ -631,10 +631,10 @@ if __name__=="__main__":
         elif k == 81:  
             if myAnn.state.drawing_mode == "draw":
                 stride_draw = max(1, stride_draw - 1)
-                message = [f"[INFO] Drawing stride decreased to {stride_draw}."]
             elif myAnn.state.drawing_mode == "eraser":
                 stride_eraser = max(1, stride_eraser - 1)
-                message = [f"[INFO] Drawing stride decreased to {stride_eraser}."] 
+            message = [f"Drawing stride: {stride_draw}.",
+                      f"Eraser stride: {stride_eraser}."]
             print_on_console(message)
         
         # ====== Increase stride size with right arrow key ======
@@ -642,11 +642,11 @@ if __name__=="__main__":
             if myAnn.state.drawing_mode == "draw":
                 max_stride_draw = roi_dim // 2  # Calculate the max stride based on roi_dim
                 stride_draw = min(max_stride_draw, stride_draw + 1)
-                message = [f"[INFO] Drawing stride increased to {stride_draw}."]
             if myAnn.state.drawing_mode == "eraser":
                 max_stride_eraser = roi_dim // 2  # Calculate the max stride based on roi_dim
                 stride_eraser = min(max_stride_eraser, stride_eraser + 1)
-                message = [f"[INFO] Drawing stride increased to {stride_eraser}."]
+            message = [f"Drawing stride: {stride_draw}.",
+                      f"Eraser stride: {stride_eraser}."]
             print_on_console(message)     
 
         # ====== Toggle background ======
