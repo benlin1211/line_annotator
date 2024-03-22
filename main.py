@@ -18,10 +18,10 @@ import argparse
 
 
 class Action():
-    def __init__(self, action_type, details):
+    def __init__(self, action_type, details, prev_annotation=None):
         self.action_type = action_type  # 'line' or 'erase'
         self.details = details  # Line coordinates or eraser circle center+radius
-
+        self.prev_annotation = prev_annotation # For eraser undo/redo
 
 class Annotator():
     def __init__(self) -> None:
@@ -41,11 +41,10 @@ class AnnotatorState():
         # Color, thickness for the annotation
 
         self.is_dragging = False # Flag to track if mouse was is_dragging to draw
-        self.eraser = False # Flag to track if mouse was is_dragging to draw
         self.leave_hint = False # Flag to record if hint info should disappear
         self.leave_help = False # Flag to record if help info should disappear
         self.is_consecutive_line = None # Add a flag for consecutive drawing mode.
-        self.drawing_mode = "nearest"
+        self.drawing_mode = "nearest" # ["nearest", "eraser"]
         
         self.immediately_draw=False
 
@@ -219,7 +218,7 @@ def initialize_annotator(image_path, annotation_path):
 
     # Create Backups 
     temp_image = image.copy()  # Temporary image for showing the line preview
-    image_backup = image.copy()  # Backup image for undo functionality
+    image_backup = cv2.imread(image_path) # Backup image for undo functionality
     annotation_backup = annotation.copy() # Backup image for undo functionality
 
     # Create Annotator 
@@ -265,6 +264,19 @@ def open_image_selector(image_set):
 if __name__=="__main__":
     # ============ Callback function to capture mouse events ============
 
+    def handle_eraser_mode(event, x, y, flags, param):
+        global points, image, temp_image, annotation, myAnn
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # Erasing by drawing a circle of the background color on annotation
+            # Adjust the radius to change the eraser size
+            eraser_radius = 10
+            action = Action('erase', ((x, y), eraser_radius), annotation.copy())
+            myAnn.actions.append(action)  # Store the line as an action
+            cv2.circle(annotation, (x, y), radius=eraser_radius, color=(0, 0, 0), thickness=-1)
+            # Redraw the whole image
+            image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
+            cv2.imshow('image', image)
+
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
 
@@ -272,39 +284,31 @@ if __name__=="__main__":
         # stride = 10
         if event == cv2.EVENT_LBUTTONDOWN:
             myAnn.state.start_dragging()
+            # Start from the nearest point.
+            ROI = extract_sub_image(annotation, x, y, roi_dim)
+            local_endpoints = detect_endpoints_local(ROI, myAnn.color)
+            n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride)  
 
-            if myAnn.state.eraser:
-                # Erasing by drawing a circle of the background color
-                # Adjust the radius to change the eraser size
-                temp_image = image.copy()
-                cv2.circle(temp_image, (x, y), radius=5, color=(0, 0, 0), thickness=-1)
-                cv2.imshow('image', temp_image)
+            # Same point: do nothing.
+            if n_x==x and n_y==y:
+                points = [(n_x, n_y)]
             else:
-                # Start from the nearest point.
-                ROI = extract_sub_image(annotation, x, y, roi_dim)
-                local_endpoints = detect_endpoints_local(ROI, myAnn.color)
-                n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride)  
+                temp_image = image.copy()
+                # Show roi range.
+                roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
+                roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
+                temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
 
-                # Same point: do nothing.
-                if n_x==x and n_y==y:
-                    points = [(n_x, n_y)]
-                else:
-                    temp_image = image.copy()
-                    # Show roi range.
-                    roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
-                    roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
-                    temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
+                print(f"\r[INFO] Nearest point triggered: {n_x},{n_y}")
+                cv2.line(temp_image, (n_x, n_y), (x, y), myAnn.color, thickness=myAnn.thickness)
 
-                    print(f"\r[INFO] Nearest point triggered: {n_x},{n_y}")
-                    cv2.line(temp_image, (n_x, n_y), (x, y), myAnn.color, thickness=myAnn.thickness)
+                # Highlight the nearest point (n_x, n_y) with a green circle
+                # # Note: n_x and n_y are reversed
+                cv2.circle(temp_image, (n_x, n_y), radius=1, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
+                points = [(n_x, n_y)]
 
-                    # Highlight the nearest point (n_x, n_y) with a green circle
-                    # # Note: n_x and n_y are reversed
-                    cv2.circle(temp_image, (n_x, n_y), radius=1, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
-                    points = [(n_x, n_y)]
-
-                    cv2.imshow('image', temp_image)
-                    
+                cv2.imshow('image', temp_image)
+                
 
         elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_dragging:
             temp_image = image.copy()
@@ -353,9 +357,8 @@ if __name__=="__main__":
             n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride) 
             
             points.append((n_x, n_y))  # Add end point
-            if not myAnn.state.eraser:
-                action = Action('line', (points[0], points[1]))
-                myAnn.actions.append(action)  # Store the line
+            action = Action('line', (points[0], points[1]))
+            myAnn.actions.append(action)  # Store the line as an action
 
             cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
             # Update temp_image with the final line for visual feedback
@@ -365,11 +368,14 @@ if __name__=="__main__":
             myAnn.undone_actions = [] 
             # print(f"Current pos: {n_x}, {n_y}")
 
-    ## ========================= Main handler =========================
+    ## ===================== Main handler ============================
     def mouse_handler(event, x, y, flags, param):
         global points, image, temp_image, myAnn
         if myAnn.state.drawing_mode == "nearest":
             handle_nearest_mode(event, x, y, flags, param)
+        elif myAnn.state.drawing_mode == "eraser":
+            handle_eraser_mode(event, x, y, flags, param)
+    ## ===================== End of Main handler =====================
 
 
     ### Use argparse to load default value to those variables.
@@ -446,6 +452,12 @@ if __name__=="__main__":
             # threading.Thread(target=open_image_selector).start()
             # threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
             current_image_index = select_image_annotation_pair_by_index(image_set, annotation_set)
+        # ====== Press 'e' to toggle erase mode ====== 
+        elif k == ord('e'):
+            myAnn.state.drawing_mode = "eraser"
+            hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
+            print_on_console(hints)
+            print_on_image(hints, image, myAnn) 
         # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
         elif k == ord('n'):
             myAnn.state.drawing_mode = "nearest"
@@ -482,6 +494,8 @@ if __name__=="__main__":
                     elif action.action_type == "erase":
                         pass
 
+                # Redraw the annotation on image.
+                image = cv2.addWeighted(image, 1, annotation, 1, 0)
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
         # ====== Press 'r' or right arrow key to redo the last undone line ======
