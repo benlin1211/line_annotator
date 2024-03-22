@@ -28,6 +28,7 @@ class Annotator():
     def __init__(self) -> None:
         self.color = (255, 255, 255)  # White color
         self.thickness = 1  # Line thickness
+        self.show_background = True
 
         # List to store lines
         self.actions = []  # Store the actions (line/eraser)
@@ -267,15 +268,15 @@ if __name__=="__main__":
 
     def handle_eraser_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, annotation_backup, myAnn
-        if event == cv2.EVENT_MOUSEMOVE:
-            temp_image = image.copy()
-            # Show stride range
-            overlay = temp_image.copy()
-            # Draw a circle
-            cv2.circle(overlay, (x, y), stride, (0, 255, 255), -1)  # Drawing the circle on the overlay
-            # Alpha value controls the transparency level (between 0 and 1)
-            alpha = 0.4
-            cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
+        # if event == cv2.EVENT_MOUSEMOVE:
+        #     temp_image = image.copy()
+        #     # Show stride range
+        #     overlay = temp_image.copy()
+        #     # Draw a circle
+        #     cv2.circle(overlay, (x, y), stride, (0, 255, 255), -1)  # Drawing the circle on the overlay
+        #     # Alpha value controls the transparency level (between 0 and 1)
+        #     alpha = 0.4
+        #     cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
 
         if event == cv2.EVENT_LBUTTONDOWN:
             # Erasing by drawing a circle of the background color on annotation
@@ -286,8 +287,12 @@ if __name__=="__main__":
 
             cv2.circle(annotation, (x, y), radius=eraser_radius, color=(0, 0, 0), thickness=-1)
             # Redraw the whole image
-            image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
+            if myAnn.show_background:
+                image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
+            else: 
+                image = annotation
             cv2.imshow('image', image)
+
             ## Once the erase mode is used, ALL action stacks will be cleaned up.
             # TODO: I can't come up with a better idea...
             # Update annotation 
@@ -446,8 +451,7 @@ if __name__=="__main__":
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
     # Show image with annotation, or annotation only.
-    show_background=True
-    image = background_toggler(image_backup, annotation, show_background)
+    image = background_toggler(image_backup, annotation, myAnn.show_background)
 
     # Create a window and bind the callback function to the window
     cv2.namedWindow('image')
@@ -493,7 +497,7 @@ if __name__=="__main__":
         # ====== Press 'e' to toggle erase mode ====== 
         elif k == ord('e'):
             myAnn.state.drawing_mode = "eraser"
-            hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
+            hints = [f"Switched to limited eraser mode."]
             print_on_console(hints)
             # print_on_image(hints, image, myAnn) 
         # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
@@ -520,7 +524,7 @@ if __name__=="__main__":
                 # Move the last line to undone list
                 myAnn.undone_actions.append(myAnn.actions.pop())  
                 # init 
-                image = image_backup.copy() if show_background else annotation_backup.copy()  # Restore the previous state
+                image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()  # Restore the previous state
                 annotation = annotation_backup.copy() 
                 # Redo the remaining actions.
                 for action in myAnn.actions: 
@@ -594,7 +598,7 @@ if __name__=="__main__":
         # ====== Leave and Save ======
         elif k == ord('s'):  
             # Optional: Combine original and annotation images for visualization
-            combined_image = cv2.addWeighted(image, 1, annotation, 1, 0)
+            combined_image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
 
             # Save demo
             cv2.imwrite(os.path.join(demo_path, 'original_image.jpg'), image_backup)
@@ -631,8 +635,8 @@ if __name__=="__main__":
             print_on_console(message)        
         # ====== Toggle background ======
         elif k == ord('b'):
-            show_background = not show_background 
-            image = background_toggler(image_backup, annotation, show_background)
+            myAnn.show_background = not myAnn.show_background 
+            image = background_toggler(image_backup, annotation, myAnn.show_background)
             cv2.imshow('image', image)
         # ====== Load existinge annotation from save_path_annotation ======
         elif k == ord('.'):
