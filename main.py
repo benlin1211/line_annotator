@@ -498,13 +498,13 @@ if __name__=="__main__":
             # threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
             current_image_index = select_image_annotation_pair_by_index(image_set, annotation_set)
         # ====== Press 'e' to toggle erase mode ====== 
-        elif k == ord('o'):
+        elif k == ord('e'):
             myAnn.state.drawing_mode = "eraser"
             hints = [f"Switched to limited eraser mode."]
             print_on_console(hints)
             # print_on_image(hints, image, myAnn) 
         # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
-        elif k == ord('i'):
+        elif k == ord('l'):
             myAnn.state.drawing_mode = "draw"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
             print_on_console(hints)
@@ -571,8 +571,8 @@ if __name__=="__main__":
             message = [
                 "============= Welcome to Line Annotator! =============",
                 "Press left click to draw a line.",
-                "[Default]: Draw mode: 'i'",
-                "Eraser mode: 'o'",
+                "[Default]: Draw mode: 'l'",
+                "Eraser mode: 'e'",
                 "=============== Load and Save ===============", 
                 "Save annotation: 's'",
                 "Load another iamge: '/'",
