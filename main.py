@@ -6,7 +6,9 @@ from scipy.ndimage import convolve
 import glob, re
 # import tkinter as tk
 # from tkinter import ttk
-from utils.data_selector import select_image_annotation_pair_by_index, read_image_and_annotation #, run_selector_app
+from utils.data_selector import select_image_annotation_pair_by_index, \
+                                read_image_and_annotation, \
+                                select_existing_annotation #, run_selector_app
 from utils.printer import print_on_console, print_on_image, background_toggler
 import threading
 
@@ -33,7 +35,6 @@ class AnnotatorState():
         # Color, thickness for the annotation
 
         self.is_dragging = False # Flag to track if mouse was is_dragging to draw
-        self.is_scratching = False # Flag to track if mouse was is_scratching
         self.leave_hint = False # Flag to record if hint info should disappear
         self.leave_help = False # Flag to record if help info should disappear
         self.is_consecutive_line = None # Add a flag for consecutive drawing mode.
@@ -53,15 +54,6 @@ class AnnotatorState():
     def end_draggging(self):
         self.is_dragging = False
 
-    # straching behavior
-    def start_scratching(self):
-        self.scratch = True
-        self.leave_hint = True 
-
-    def end_scratching(self):
-        self.scratch = False
-
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
     parser.add_argument('--save_path', type=str, default='./result/', help='Path to save the output results.')
@@ -71,7 +63,7 @@ def parse_arguments():
         
     # Add stride and roi_dim arguments
     parser.add_argument('--stride', type=int, default=10, help='Stride size for nearest mode adjustments.')
-    parser.add_argument('--roi_dim', type=int, default=101, help='ROI size for sub-image extraction.')
+    parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
     return args
@@ -291,20 +283,6 @@ if __name__=="__main__":
             ## Also clear redo history.
             myAnn.undone_lines = [] 
 
-    # TODO: Scratch = drawing several lines in frame... (or maybe not using it?)
-    def _handle_scratch_mode(event, x, y, flags, param):
-        global points, image, temp_image, annotation, myAnn
-        if event == cv2.EVENT_LBUTTONDOWN:
-            myAnn.state.start_scratching()
-            cv2.circle(annotation, (x, y), 1, myAnn.color, -1)
-
-        elif event == cv2.EVENT_MOUSEMOVE and myAnn.state.is_scratching:
-            # keep reading "points" and use cv2.line to connect them all 
-            cv2.circle(annotation, (x, y), 1, myAnn.color, -1)
-            cv2.imshow('image', cv2.addWeighted(image, 0.8, annotation, 0.5, 0))
-            
-        elif event == cv2.EVENT_LBUTTONUP:
-            myAnn.state.end_scratching()
 
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
@@ -402,8 +380,6 @@ if __name__=="__main__":
         global points, image, temp_image, myAnn
         if myAnn.state.drawing_mode == "line":
             handle_line_mode(event, x, y, flags, param)
-        elif myAnn.state.drawing_mode == "scratch":
-            _handle_scratch_mode(event, x, y, flags, param)
         elif myAnn.state.drawing_mode == "nearest":
             handle_nearest_mode(event, x, y, flags, param)
 
@@ -455,6 +431,7 @@ if __name__=="__main__":
     while True:
         # Initialize image if the index changes. 
         print(f"Current_image_index={current_image_index}")
+        print(f"image_name: {os.path.basename(image_path)}")
         if last_index != current_image_index:
             # Load and display the new image
             image_path = image_set[current_image_index]
@@ -481,14 +458,6 @@ if __name__=="__main__":
             # threading.Thread(target=open_image_selector).start()
             # threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
             current_image_index = select_image_annotation_pair_by_index(image_set, annotation_set)
-
-        # ====== Press 'x' to toggle drawing mode (not implemented.) ======
-        elif k == ord('x'):
-            # myAnn.state.drawing_mode = "scratch" if myAnn.state.drawing_mode == "line" else "line"
-            # hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
-            hints = [f"Warning: Scratch mode not implemented."]
-            print_on_console(hints)
-            print_on_image(hints, image, myAnn)            
         # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
         elif k == ord('n'):
             myAnn.state.drawing_mode = "nearest"
@@ -513,12 +482,12 @@ if __name__=="__main__":
                 hints = [f"Consecutive dragging is avaliable for drawing_mode only."]
                 print_on_console(hints)
 
-        # ====== Press 'u' to undo the last line drawn ======
-        elif k == ord('u'):  
+        # ====== Press 'u' or left arrow key to undo the last line drawn ======
+        elif k == ord('u') or k == 81:  
             print(len( myAnn.lines))
             if myAnn.lines:
                 myAnn.undone_lines.append(myAnn.lines.pop())  # Move the last line to undone list
-                image = image_backup.copy() if show_background else annotation_backup.copy() # Restore the previous state
+                image = image_backup.copy() if show_background else annotation_backup.copy()  # Restore the previous state
                 annotation = annotation_backup.copy()  # Restore the previous state
                 for line in myAnn.lines: 
                     # Redraw remaining lines
@@ -527,8 +496,8 @@ if __name__=="__main__":
                     cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
-        # ====== Press 'r' to redo the last undone line ======
-        elif k == ord('r'):  
+        # ====== Press 'r' or right arrow key to redo the last undone line ======
+        elif k == ord('r') or k == 83:  
             if myAnn.undone_lines:
                 line = myAnn.undone_lines.pop()  # Get the last undone line
                 myAnn.lines.append(line)  # Move it back to lines list
@@ -541,8 +510,8 @@ if __name__=="__main__":
             message = [
                 "============= Welcome to Line Annotator! =============",
                 "Press left click to draw a line.",
-                "Undo: 'u'",
-                "Redo: 'r'",
+                "Undo: 'u' or 'left arrow key ",
+                "Redo: 'r' or 'right arrow key' ",
                 "[Default]: Nearest mode: 'n'",
                 "Line mode: 'l'",
                 "Scratch mode: 'x'",
@@ -551,8 +520,8 @@ if __name__=="__main__":
                 "Leave without Saveing: 'esc'",
                 "=============== Author: Zhong-Wei Lin ===============", 
                 "Show all endpoints: 'p'",
-                "Decrease stride: left arrow key",
-                "Increase stride: right arrow key",
+                "Decrease stride: 'i'",
+                "Increase stride: 'o'",
             ]
             print_on_console(message)
             print_on_image([os.path.basename(image_path)])
@@ -597,22 +566,33 @@ if __name__=="__main__":
             break
 
         # ====== Decrease stride size with left arrow key ======
-        elif k == 81:  
+        elif k == ord('i'):  
             stride = max(1, stride - 1)
             message = [f"[INFO] stride decreased to {stride}."]
             print_on_console(message)
         
         # ====== Increase stride size with right arrow key ======
-        elif k == 83: 
+        elif k == ord('o'): 
             max_stride = roi_dim // 2  # Calculate the max stride based on roi_dim
             stride = min(max_stride, stride + 1)
             message = [f"[INFO] stride increased to {stride}."]
             print_on_console(message)        
-        # ====== to show annotation only ======
+        # ====== Toggle background ======
         elif k == ord('b'):
             show_background = not show_background 
             image = background_toggler(image_backup, annotation, show_background)
             cv2.imshow('image', image)
+        # ====== Load existinge annotation from save_path_annotation ======
+        elif k == ord('.'):
+            new_annotation_path = select_existing_annotation(save_path_annotation) # or use args.save_path if you want it configurable
+            if new_annotation_path:
+                # Update the display or any internal state as necessary
+                image, annotation = read_image_and_annotation(image_path, new_annotation_path)
+                print(f"Loaded annotation from {new_annotation_path}")
+                cv2.imshow('image', image)
+            else:
+                print("Annotation selection was canceled or no annotations available.")
+        
         # ====== Exception handeling (show hint) ======
         else: 
             instruction_image = image.copy()

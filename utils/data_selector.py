@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from PyQt5.QtWidgets import QApplication, QListWidget, QVBoxLayout, QWidget
 import sys, os
+import glob
 
 class ImageSelector(QWidget):
     def __init__(self, image_list):
@@ -79,3 +80,30 @@ def select_image_annotation_pair_by_index(image_set, annotation_set):
         return selected_index.get() 
     else:
         return None  # Or handle this case as you prefer
+    
+
+def select_existing_annotation(result_path):
+    root = tk.Tk()
+    root.title('Select Existing Annotation')
+
+    selected_path = tk.StringVar(value="")
+
+    annotation_files = glob.glob(os.path.join(result_path, "*.bmp"))  # Adjust pattern if necessary
+    if not annotation_files:  # No annotation files found
+        print("No annotations found in", result_path)
+        return None
+
+    def on_select(event):
+        selection_index = listbox.curselection()[0]
+        selected_path.set(annotation_files[selection_index])
+        root.destroy()
+
+    listbox = tk.Listbox(root, width=100, height=20)
+    for file_path in annotation_files:
+        listbox.insert(tk.END, os.path.basename(file_path))
+    listbox.bind('<<ListboxSelect>>', on_select)
+    listbox.pack()
+
+    root.mainloop()
+
+    return selected_path.get()
