@@ -31,7 +31,7 @@ class Annotator():
         self.show_background = True
 
         # List to store lines
-        self.actions = []  # Store the actions (line/eraser)
+        self.actions = []  # Store the actions 
         self.undone_actions = []  # Store the undone actions for redo functionality
         # State variable to store the flags
         self.state = AnnotatorState()
@@ -73,6 +73,7 @@ def parse_arguments():
         
     # Add stride and roi_dim arguments
     parser.add_argument('--stride_draw', type=int, default=10, help='Stride size for draw mode adjustments.')
+    parser.add_argument('--stride_erase', type=int, default=10, help='Stride size for erase mode adjustments.')
     parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
@@ -289,11 +290,10 @@ if __name__=="__main__":
         if event == cv2.EVENT_LBUTTONDOWN:
             # Erasing by drawing a circle of the background color on annotation
             # Adjust the radius to change the eraser size
-            eraser_radius = 10
             # action = Action('erase', { "center": (x, y), "erase_radius": eraser_radius)
             # myAnn.actions.append(action)  # Store the line as an action
 
-            cv2.circle(annotation, (x, y), radius=eraser_radius, color=(0, 0, 0), thickness=-1)
+            cv2.circle(annotation, (x, y), radius=stride_erase, color=(0, 0, 0), thickness=-1)
             # Redraw the whole image
             if myAnn.show_background:
                 image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
@@ -308,6 +308,7 @@ if __name__=="__main__":
             # Also clear ALL history.
             myAnn.undone_actions = [] 
             myAnn.actions = [] 
+
 
     def handle_nearest_mode(event, x, y, flags, param):
         global points, image, temp_image, annotation, myAnn
@@ -454,9 +455,9 @@ if __name__=="__main__":
     cv2.imshow('image', image)
 
     # Use global to make callback function sees the variable
-    global stride_draw, roi_dim
+    global stride_draw, roi_dim, stride_erase
     stride_draw = args.stride_draw
-    # stride_erase = args.stride_erase
+    stride_erase = args.stride_erase
     roi_dim = args.roi_dim
 
     # ================================== Main program ==================================
@@ -545,7 +546,7 @@ if __name__=="__main__":
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
         # ====== Press 'r' or right arrow key to redo the last undone line ======
-        elif k == ord('r') or k == 83:  
+        elif k == ord('r'):  
             if myAnn.undone_actions:
                 action = myAnn.undone_actions.pop()  # Get the last undone line
                 myAnn.actions.append(action)  # Move it back to lines list
@@ -625,15 +626,24 @@ if __name__=="__main__":
 
         # ====== Decrease stride size with left arrow key ======
         elif k == 81:  
-            stride_draw = max(1, stride - 1)
-            message = [f"[INFO] stride decreased to {stride_draw}."]
+            if myAnn.state.drawing_mode == "draw":
+                stride_draw = max(1, stride_draw - 1)
+                message = [f"[INFO] Drawing stride decreased to {stride_draw}."]
+            elif myAnn.state.drawing_mode == "eraser":
+                stride_erase = max(1, stride_erase - 1)
+                message = [f"[INFO] Drawing stride decreased to {stride_erase}."] 
             print_on_console(message)
         
         # ====== Increase stride size with right arrow key ======
         elif k == 83: 
-            max_stride_draw = roi_dim // 2  # Calculate the max stride based on roi_dim
-            stride_draw = min(max_stride_draw, stride_draw + 1)
-            message = [f"[INFO] stride increased to {stride_draw}."]
+            if myAnn.state.drawing_mode == "draw":
+                max_stride_draw = roi_dim // 2  # Calculate the max stride based on roi_dim
+                stride_draw = min(max_stride_draw, stride_draw + 1)
+                message = [f"[INFO] Drawing stride increased to {stride_draw}."]
+            if myAnn.state.drawing_mode == "eraser":
+                max_stride_erase = roi_dim // 2  # Calculate the max stride based on roi_dim
+                stride_erase = min(max_stride_erase, stride_erase + 1)
+                message = [f"[INFO] Drawing stride increased to {stride_erase}."]
             print_on_console(message)     
 
         # ====== Toggle background ======
