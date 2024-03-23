@@ -273,6 +273,17 @@ def open_image_selector(image_set):
     top.mainloop()
 
 
+def refresh_image(image_backup: np.ndarray, annotation: np.ndarray, myAnn: Annotator):
+
+    image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()
+    image = cv2.addWeighted(image, 1, annotation, 1, 0)
+    # Plot endpoint back if it is toggled.
+    if myAnn.show_endpoint:
+        endpoints = detect_endpoints_local(annotation, myAnn.color)
+        for (px, py) in endpoints:
+            cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+    return image
+
 if __name__=="__main__":
     # ============ Callback function to capture mouse events ============
 
@@ -400,14 +411,7 @@ if __name__=="__main__":
             cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
             # Refresh the image for the final line for visual feedback.
 
-            image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()
-            image = cv2.addWeighted(image, 1, annotation, 1, 0)
-
-            # Plot endpoint back if it is toggled.
-            if myAnn.show_endpoint:
-                endpoints = detect_endpoints_local(annotation, myAnn.color)
-                for (px, py) in endpoints:
-                    cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+            image = refresh_image(image_backup, annotation, myAnn)
             # Show the image with the final line
             cv2.imshow('image', image) 
             ## Also clear redo history.
@@ -542,8 +546,8 @@ if __name__=="__main__":
                 image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()  # Restore the previous state
                 # [New] Redo the remaining actions from initial annotation.
                 annotation = annotation_backup.copy() 
-                for action in myAnn.actions: 
-                    print(action.action_type)
+                for i, action in enumerate(myAnn.actions): 
+                    print(f"[{i}] {action.action_type}")
                     if action.action_type == "line":
                         line = action.details["line"]        
                         # Redraw recorded lines
@@ -563,20 +567,13 @@ if __name__=="__main__":
             if myAnn.undone_actions:
                 action = myAnn.undone_actions.pop()  # Get the last undone line
                 myAnn.actions.append(action)  # Move it back to lines list
-                for action in myAnn.actions: 
-                    print(action.action_type)
+                for i, action in enumerate(myAnn.actions): 
+                    print(f"[{i}] {action.action_type}")
                 if action.action_type == "line":
                     line = action.details["line"]
                     cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
-                    # Redraw the annotation result on image.
-                    image = cv2.addWeighted(image, 1, annotation, 1, 0)
-
-                # Plot endpoint back if it is toggled.
-                if myAnn.show_endpoint:
-                    endpoints = detect_endpoints_local(annotation, myAnn.color)
-                    for (px, py) in endpoints:
-                        cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
-
+                # Redraw the annotation result on image.
+                image = refresh_image(image_backup, annotation, myAnn)
                 cv2.imshow('image', image)
                 print("[INFO] Redo.") 
         # ====== Press 'h' to show message ======
