@@ -9,7 +9,7 @@ import glob, re
 from utils.data_selector import select_image_annotation_pair_by_index, \
                                 read_image_and_annotation, \
                                 select_existing_annotation #, run_selector_app
-from utils.printer import print_on_console, background_toggler #, print_on_image
+from utils.printer import print_on_console #, print_on_image
 import threading
 
 import tkinter as tk
@@ -29,6 +29,7 @@ class Annotator():
         self.color = (255, 255, 255)  # White color
         self.thickness = 1  # Line thickness
         self.show_background = True
+        self.show_endpoint= False
 
         # List to store lines
         self.actions = []  # Store the actions 
@@ -399,7 +400,14 @@ if __name__=="__main__":
             cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
             # Update temp_image with the final line for visual feedback
             cv2.line(image, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
-            cv2.imshow('image', image)  # Show the image with the final line
+
+            # Plot endpoint back if it is toggled.
+            if myAnn.show_endpoint:
+                endpoints = detect_endpoints_local(annotation, myAnn.color)
+                for (px, py) in endpoints:
+                    cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+            # Show the image with the final line
+            cv2.imshow('image', image) 
             ## Also clear redo history.
             myAnn.undone_actions = [] 
 
@@ -448,9 +456,6 @@ if __name__=="__main__":
 
     # Plot previous annotations on image. 
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
-
-    # Show image with annotation, or annotation only.
-    image = background_toggler(image_backup, annotation, myAnn.show_background)
 
     # Create a window and bind the callback function to the window
     cv2.namedWindow('image')
@@ -528,24 +533,24 @@ if __name__=="__main__":
                 myAnn.undone_actions.append(myAnn.actions.pop())  
                 # init 
                 image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()  # Restore the previous state
+                # Redo the remaining actions from initial annotation.
                 annotation = annotation_backup.copy() 
-                # Redo the remaining actions.
                 for action in myAnn.actions: 
                     print(action.action_type)
                     if action.action_type == "line":
-                        line = action.details["line"]
-                        
+                        line = action.details["line"]        
                         # Redraw recorded lines
                         cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
-                        ## Redraw remaining lines
-                        # cv2.line(image, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
-                    # elif action.action_type == "erase":
-                    #     x, y = action.details["center"]
-                    #     erase_radius = action.details["erase_radius"]
-                    #     cv2.circle(annotation, (x, y), radius=erase_radius, color=(0, 0, 0), thickness=-1)
 
                 # Redraw the annotation result on image.
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
+
+                # Plot endpoint back if it is toggled.
+                if myAnn.show_endpoint:
+                    endpoints = detect_endpoints_local(annotation, myAnn.color)
+                    for (px, py) in endpoints:
+                        cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
         # ====== Press 'r' or right arrow key to redo the last undone line ======
@@ -560,10 +565,13 @@ if __name__=="__main__":
                     cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
                     # Redraw the annotation result on image.
                     image = cv2.addWeighted(image, 1, annotation, 1, 0)
-                # elif action.action_type == "erase":
-                #     image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
 
-                
+                # Plot endpoint back if it is toggled.
+                if myAnn.show_endpoint:
+                    endpoints = detect_endpoints_local(annotation, myAnn.color)
+                    for (px, py) in endpoints:
+                        cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+
                 cv2.imshow('image', image)
                 print("[INFO] Redo.") 
         # ====== Press 'h' to show message ======
@@ -587,19 +595,6 @@ if __name__=="__main__":
             ]
             print_on_console(message)
             # print_on_image([os.path.basename(image_path)])
-
-        # ====== Press 'p' to toggle to print all endpoints ======
-        elif k == ord('p'):  
-            temp_image = image.copy()
-            endpoints = detect_endpoints_local(annotation, myAnn.color)
-            message = [
-                "Show all endpoints",
-            ]
-            print_on_console(message)
-            print(endpoints)
-            for (px, py) in endpoints:
-                cv2.circle(temp_image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
-            cv2.imshow('image', temp_image)
 
         # ====== Leave and Save ======
         elif k == ord('s'):  
@@ -652,8 +647,54 @@ if __name__=="__main__":
         # ====== Toggle background ======
         elif k == ord('b'):
             myAnn.show_background = not myAnn.show_background 
-            image = background_toggler(image_backup, annotation, myAnn.show_background)
+            image = image_backup.copy() 
+            # Show image with annotation, or annotation only.
+            if myAnn.show_background:
+                # Show image with annotations
+                message = ["Show background",]
+                print_on_console(message)
+                image = cv2.addWeighted(image, 1, annotation, 1, 0)
+            else:
+                # Show annotations only
+                message = ["Hide background",]
+                print_on_console(message)
+                image = annotation.copy()
+            # Plot endpoint back if it is toggled.
+            if myAnn.show_endpoint:
+                endpoints = detect_endpoints_local(annotation, myAnn.color)
+                for (px, py) in endpoints:
+                    cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+
             cv2.imshow('image', image)
+
+        # ====== Press 'p' to toggle to print all endpoints ======
+        elif k == ord('p'):  
+            myAnn.show_endpoint = not myAnn.show_endpoint 
+            # Re-draw the image
+            image = image_backup.copy() 
+            # Show image with annotation, or annotation only.
+            if myAnn.show_background:
+                # Show image with annotations
+                image = cv2.addWeighted(image, 1, annotation, 1, 0)
+            else:
+                # Show annotations only
+                image = annotation.copy()
+                # Bug: the endpoint will decrease when show_background toggled
+                
+            if myAnn.show_endpoint:
+                # Plot all endpoints on image 
+                message = ["Show all endpoints",]
+                print_on_console(message)
+                endpoints = detect_endpoints_local(annotation, myAnn.color)
+                for (px, py) in endpoints:
+                    cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle         
+            else:
+                message = ["Hide all endpoints",]
+                print_on_console(message)
+            print(len(endpoints))
+ 
+            cv2.imshow('image', image)
+
         # ====== Load existinge annotation from save_path_annotation ======
         elif k == ord('.'):
             new_annotation_path = select_existing_annotation(save_path_annotation) # or use args.save_path if you want it configurable
