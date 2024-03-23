@@ -643,7 +643,7 @@ if __name__=="__main__":
             message = [f"Drawing stride: {stride_draw}.",
                       f"Eraser stride: {stride_eraser}."]
             print_on_console(message)     
-
+        ## ============ Note that both 'b' and 'p' redraw image based on flags. ============
         # ====== Toggle background ======
         elif k == ord('b'):
             myAnn.show_background = not myAnn.show_background 
@@ -664,9 +664,7 @@ if __name__=="__main__":
                 endpoints = detect_endpoints_local(annotation, myAnn.color)
                 for (px, py) in endpoints:
                     cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
-
             cv2.imshow('image', image)
-
         # ====== Press 'p' to toggle to print all endpoints ======
         elif k == ord('p'):  
             myAnn.show_endpoint = not myAnn.show_endpoint 
@@ -680,7 +678,6 @@ if __name__=="__main__":
                 # Show annotations only
                 image = annotation.copy()
                 # Bug: the endpoint will decrease when show_background toggled
-                
             if myAnn.show_endpoint:
                 # Plot all endpoints on image 
                 message = ["Show all endpoints",]
@@ -692,8 +689,8 @@ if __name__=="__main__":
                 message = ["Hide all endpoints",]
                 print_on_console(message)
             print(len(endpoints))
- 
             cv2.imshow('image', image)
+        ## =================================================================================
 
         # ====== Load existinge annotation from save_path_annotation ======
         elif k == ord('.'):
