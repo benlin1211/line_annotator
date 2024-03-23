@@ -313,7 +313,7 @@ if __name__=="__main__":
 
 
     def handle_nearest_mode(event, x, y, flags, param):
-        global points, image, temp_image, annotation, myAnn
+        global points, image, image_backup, temp_image, annotation, myAnn
 
         # roi_dim = 101  # (5x5px)
         # stride = 10
@@ -398,8 +398,10 @@ if __name__=="__main__":
             myAnn.actions.append(action)  # Store the line as an action
 
             cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
-            # Update temp_image with the final line for visual feedback
-            cv2.line(image, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
+            # Refresh the image for the final line for visual feedback.
+
+            image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()
+            image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
             # Plot endpoint back if it is toggled.
             if myAnn.show_endpoint:
@@ -474,27 +476,32 @@ if __name__=="__main__":
         print(f"Current_image_index={current_image_index}")
         print(f"image_name: {os.path.basename(image_path)}")
         if last_index != current_image_index:
-            # Load and display the new image
-            image_path = image_set[current_image_index]
-            annotation_path = annotation_set[current_image_index]
-            # TODO: the image will be changed after saving. IDK why.
-            
-            # # Read the first image by selecting in tkinter.
-            # image_path, annotation_path = select_image_annotation_pair_by_index(image_set, annotation_set)
-            
-            # Initialize
-            image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
-            ## image: 正在畫的圖
-            ## annotation: 正在畫的標註
-            ## image_backup: 原圖
-            ## annotation_backup: 標註紀錄（for undo）
+            # Handle the case that the window is closed.
+            if current_image_index == None:
+                # Resume to last index (i.e. nothing happened)
+                current_image_index = last_index
+            else:
+                # Load and display the new image
+                image_path = image_set[current_image_index]
+                annotation_path = annotation_set[current_image_index]
+                # TODO: the image will be changed after saving. IDK why.
+                
+                # # Read the first image by selecting in tkinter.
+                # image_path, annotation_path = select_image_annotation_pair_by_index(image_set, annotation_set)
+                
+                # Initialize
+                image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+                ## image: 正在畫的圖
+                ## annotation: 正在畫的標註
+                ## image_backup: 原圖
+                ## annotation_backup: 標註紀錄（for undo）
 
-            # Plot previous annotations on image. 
-            image = cv2.addWeighted(image, 1, annotation, 1, 0)
+                # Plot previous annotations on image. 
+                image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
-            # Initial display with description
-            last_index = current_image_index
-            cv2.imshow('image', image)
+                # Initial display with description
+                last_index = current_image_index
+                cv2.imshow('image', image)
 
         k = cv2.waitKey(0)
         # ====== Press 'n' to open the image selector======
@@ -533,7 +540,7 @@ if __name__=="__main__":
                 myAnn.undone_actions.append(myAnn.actions.pop())  
                 # init 
                 image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()  # Restore the previous state
-                # Redo the remaining actions from initial annotation.
+                # [New] Redo the remaining actions from initial annotation.
                 annotation = annotation_backup.copy() 
                 for action in myAnn.actions: 
                     print(action.action_type)
@@ -541,10 +548,8 @@ if __name__=="__main__":
                         line = action.details["line"]        
                         # Redraw recorded lines
                         cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
-
                 # Redraw the annotation result on image.
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
-
                 # Plot endpoint back if it is toggled.
                 if myAnn.show_endpoint:
                     endpoints = detect_endpoints_local(annotation, myAnn.color)

@@ -86,7 +86,7 @@ def select_existing_annotation(result_path):
 
     selected_path = tk.StringVar(value="")
 
-    annotation_files = glob.glob(os.path.join(result_path, "*.bmp"))  # Adjust pattern if necessary
+    annotation_files = sorted(glob.glob(os.path.join(result_path, "*.bmp")))  # Adjust pattern if necessary
     if not annotation_files:  # No annotation files found
         print("No annotations found in", result_path)
         return None
