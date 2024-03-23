@@ -230,13 +230,13 @@ def initialize_annotator(image_path, annotation_path):
     
     # Create Backups 
     temp_image = image.copy()  # Temporary image for showing the line preview
-    image_backup = image.copy() # Backup image for undo functionality
-    annotation_backup = annotation.copy() # Backup image for undo functionality
+    image_original = image.copy() # Backup image for undo functionality
+    annotation_original = annotation.copy() # Backup image for undo functionality
 
     # Create Annotator 
     myAnn = Annotator()
     
-    return image, annotation, temp_image, image_backup, annotation_backup, myAnn
+    return image, annotation, temp_image, image_original, annotation_original, myAnn
 
 
 # # This function runs the PyQt app in a separate thread
@@ -273,9 +273,9 @@ def open_image_selector(image_set):
     top.mainloop()
 
 
-def refresh_image(image_backup: np.ndarray, annotation: np.ndarray, myAnn: Annotator):
+def refresh_image(image_original: np.ndarray, annotation: np.ndarray, myAnn: Annotator):
 
-    image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()
+    image = image_original.copy() if myAnn.show_background else annotation_original.copy()
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
     # Plot endpoint back if it is toggled.
     if myAnn.show_endpoint:
@@ -288,7 +288,7 @@ if __name__=="__main__":
     # ============ Callback function to capture mouse events ============
 
     def handle_eraser_mode(event, x, y, flags, param):
-        global points, image, temp_image, annotation, annotation_backup, myAnn
+        global points, image, image_original, temp_image, annotation, annotation_original, myAnn
         if event == cv2.EVENT_MOUSEMOVE:
             temp_image = image.copy()
             # Show stride range
@@ -308,23 +308,20 @@ if __name__=="__main__":
 
             cv2.circle(annotation, (x, y), radius=stride_eraser, color=(0, 0, 0), thickness=-1)
             # Redraw the whole image
-            if myAnn.show_background:
-                image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
-            else: 
-                image = annotation
+            image = refresh_image(image_original, annotation, myAnn)
             cv2.imshow('image', image)
 
+            # Directly erase on the original annotation
+            annotation_original = annotation
             ## Once the erase mode is used, ALL action stacks will be cleaned up.
             # TODO: I can't come up with a better idea...
-            # Update annotation 
-            annotation_backup = annotation
             # Also clear ALL history.
             myAnn.undone_actions = [] 
             myAnn.actions = [] 
 
 
     def handle_nearest_mode(event, x, y, flags, param):
-        global points, image, image_backup, temp_image, annotation, myAnn
+        global points, image, image_original, temp_image, annotation, myAnn
 
         # roi_dim = 101  # (5x5px)
         # stride = 10
@@ -411,7 +408,7 @@ if __name__=="__main__":
             cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
             # Refresh the image for the final line for visual feedback.
 
-            image = refresh_image(image_backup, annotation, myAnn)
+            image = refresh_image(image_original, annotation, myAnn)
             # Show the image with the final line
             cv2.imshow('image', image) 
             ## Also clear redo history.
@@ -454,11 +451,11 @@ if __name__=="__main__":
     last_index = current_image_index
 
     # Initialize annotator
-    image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+    image, annotation, temp_image, image_original, annotation_original, myAnn = initialize_annotator(image_path, annotation_path)
     ## image: 正在畫的圖
     ## annotation: 正在畫的標註
-    ## image_backup: 原圖
-    ## annotation_backup: 標註紀錄（for undo）
+    ## image_original: 原圖
+    ## annotation_original: 標註紀錄（for undo）
 
     # Plot previous annotations on image. 
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
@@ -494,11 +491,11 @@ if __name__=="__main__":
                 # image_path, annotation_path = select_image_annotation_pair_by_index(image_set, annotation_set)
                 
                 # Initialize
-                image, annotation, temp_image, image_backup, annotation_backup, myAnn = initialize_annotator(image_path, annotation_path)
+                image, annotation, temp_image, image_original, annotation_original, myAnn = initialize_annotator(image_path, annotation_path)
                 ## image: 正在畫的圖
                 ## annotation: 正在畫的標註
-                ## image_backup: 原圖
-                ## annotation_backup: 標註紀錄（for undo）
+                ## image_original: 原圖
+                ## annotation_original: 標註紀錄（for undo）
 
                 # Plot previous annotations on image. 
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
@@ -543,9 +540,9 @@ if __name__=="__main__":
                 # Move the last line to undone list
                 myAnn.undone_actions.append(myAnn.actions.pop())  
                 # init 
-                image = image_backup.copy() if myAnn.show_background else annotation_backup.copy()  # Restore the previous state
+                image = image_original.copy() if myAnn.show_background else annotation_original.copy()  # Restore the previous state
                 # [New] Redo the remaining actions from initial annotation.
-                annotation = annotation_backup.copy() 
+                annotation = annotation_original.copy() 
                 for i, action in enumerate(myAnn.actions): 
                     print(f"[{i}] {action.action_type}")
                     if action.action_type == "line":
@@ -562,18 +559,27 @@ if __name__=="__main__":
 
                 cv2.imshow('image', image)
                 print("[INFO] Undo.")
-        # ====== Press 'r' or right arrow key to redo the last undone line ======
+        # ====== Press 'r' to redo the last undone line ======
         elif k == ord('r'):  
             if myAnn.undone_actions:
                 action = myAnn.undone_actions.pop()  # Get the last undone line
                 myAnn.actions.append(action)  # Move it back to lines list
                 for i, action in enumerate(myAnn.actions): 
                     print(f"[{i}] {action.action_type}")
+                # init 
+                image = image_original.copy() if myAnn.show_background else annotation_original.copy()  # Restore the previous state                
                 if action.action_type == "line":
                     line = action.details["line"]
                     cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
                 # Redraw the annotation result on image.
-                image = refresh_image(image_backup, annotation, myAnn)
+                image = cv2.addWeighted(image, 1, annotation, 1, 0)
+
+                # Plot endpoint back if it is toggled.
+                if myAnn.show_endpoint:
+                    endpoints = detect_endpoints_local(annotation, myAnn.color)
+                    for (px, py) in endpoints:
+                        cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
+
                 cv2.imshow('image', image)
                 print("[INFO] Redo.") 
         # ====== Press 'h' to show message ======
@@ -601,17 +607,17 @@ if __name__=="__main__":
         # ====== Leave and Save ======
         elif k == ord('s'):  
             # Optional: Combine original and annotation images for visualization
-            combined_image = cv2.addWeighted(image_backup, 1, annotation, 1, 0)
+            combined_image = cv2.addWeighted(image_original, 1, annotation, 1, 0)
 
             # Save demo
-            cv2.imwrite(os.path.join(demo_path, 'original_image.jpg'), image_backup)
+            cv2.imwrite(os.path.join(demo_path, 'original_image.jpg'), image_original)
             cv2.imwrite(os.path.join(demo_path, 'annotation_only.jpg'), annotation)
             cv2.imwrite(os.path.join(demo_path, 'combined_image.jpg'), combined_image)
 
             # Save result
             image_name = os.path.basename(image_path)
             annotation_name = os.path.basename(annotation_path) 
-            cv2.imwrite(os.path.join(save_path_origin, image_name), image_backup)
+            cv2.imwrite(os.path.join(save_path_origin, image_name), image_original)
             cv2.imwrite(os.path.join(save_path_annotation, annotation_name), annotation)
             cv2.imwrite(os.path.join(save_path_combined, f"combined_{image_name}"), combined_image)
 
@@ -649,7 +655,7 @@ if __name__=="__main__":
         # ====== Toggle background ======
         elif k == ord('b'):
             myAnn.show_background = not myAnn.show_background 
-            image = image_backup.copy() 
+            image = image_original.copy() 
             # Show image with annotation, or annotation only.
             if myAnn.show_background:
                 # Show image with annotations
@@ -671,7 +677,7 @@ if __name__=="__main__":
         elif k == ord('p'):  
             myAnn.show_endpoint = not myAnn.show_endpoint 
             # Re-draw the image
-            image = image_backup.copy() 
+            image = image_original.copy() 
             # Show image with annotation, or annotation only.
             if myAnn.show_background:
                 # Show image with annotations
