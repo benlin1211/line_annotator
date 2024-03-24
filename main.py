@@ -275,7 +275,7 @@ def open_image_selector(image_set):
 
 def refresh_image(image_original: np.ndarray, annotation: np.ndarray, myAnn: Annotator):
 
-    image = image_original.copy() if myAnn.show_background else annotation_original.copy()
+    image = image_original.copy() if myAnn.show_background else annotation.copy()
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
     # Plot endpoint back if it is toggled.
     if myAnn.show_endpoint:
@@ -311,8 +311,8 @@ if __name__=="__main__":
             image = refresh_image(image_original, annotation, myAnn)
             cv2.imshow('image', image)
 
-            # Directly erase on the original annotation
-            annotation_original = annotation
+            # Directly update the original annotation
+            annotation_original = annotation.copy()
             ## Once the erase mode is used, ALL action stacks will be cleaned up.
             # TODO: I can't come up with a better idea...
             # Also clear ALL history.
@@ -404,6 +404,7 @@ if __name__=="__main__":
             points.append((n_x, n_y))  # Add end point
             action = Action('line', {'line':(points[0], points[1])})
             myAnn.actions.append(action)  # Store the line as an action
+            # print(f"len of action stack: {len(myAnn.actions)}")
 
             cv2.line(annotation, points[0], points[1], myAnn.color, thickness=myAnn.thickness)
             # Refresh the image for the final line for visual feedback.
