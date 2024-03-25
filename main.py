@@ -9,7 +9,7 @@ import glob, re
 from utils.data_selector import select_image_annotation_pair_by_index, \
                                 read_image_and_annotation, \
                                 select_existing_annotation #, run_selector_app
-from utils.printer import print_on_console #, print_on_image
+from utils.printer import print_on_console, print_on_image
 import threading
 
 import tkinter as tk
@@ -286,6 +286,9 @@ def refresh_image(image_original: np.ndarray, annotation: np.ndarray, myAnn: Ann
 
 if __name__=="__main__":
     # ============ Callback function to capture mouse events ============
+    # For backgrond showing
+    def do_nothing(event, x, y, flags, param):
+        pass
 
     def handle_eraser_mode(event, x, y, flags, param):
         global points, image, image_original, temp_image, annotation, annotation_original, myAnn
@@ -312,7 +315,7 @@ if __name__=="__main__":
             cv2.imshow('image', image)
 
             # Directly update the original annotation
-            annotation_original = annotation.copy()
+            annotation_original = annotation.copy() # <= The reason why cannot undo lines after erase until undo is called.
             ## Once the erase mode is used, ALL action stacks will be cleaned up.
             # TODO: I can't come up with a better idea...
             # Also clear ALL history.
@@ -422,6 +425,8 @@ if __name__=="__main__":
             handle_nearest_mode(event, x, y, flags, param)
         elif myAnn.state.drawing_mode == "eraser":
             handle_eraser_mode(event, x, y, flags, param)
+        elif myAnn.state.drawing_mode == "idle":
+            do_nothing(event, x, y, flags, param)
     ## ===================== End of Main handler =====================
 
 
@@ -651,7 +656,29 @@ if __name__=="__main__":
                 stride_eraser = min(max_stride_eraser, stride_eraser + 1)
             message = [f"Drawing stride: {stride_draw}.",
                       f"Eraser stride: {stride_eraser}."]
-            print_on_console(message)     
+            print_on_console(message)  
+        # ====== Show background ======
+        elif k == ord('a'):
+            k2 = 0
+            last_drawing_mode = myAnn.state.drawing_mode
+            # Temporarily Disable the Mouse Callback
+            myAnn.state.drawing_mode = 'idle'
+            while True:
+                if k2 != ord('a'): # and k2 != 27: # ESC
+                    message = ["Show background only.", 
+                               "[Press 'a' again to leave.]",]
+                else:    
+                    myAnn.state.drawing_mode = last_drawing_mode
+                    break
+                temp_image = image_original.copy()
+                cv2.imshow('image', temp_image)
+                print_on_console(message) 
+                # print_on_image(message, temp_image, myAnn) 
+                k2 = cv2.waitKey(0)
+            message = ["Leave background-only mode",]
+            print_on_console(message)    
+            image = refresh_image(image_original, annotation, myAnn)
+            cv2.imshow('image', image)   
         ## ============ Note that both 'b' and 'p' redraw image based on flags. ============
         # ====== Toggle background ======
         elif k == ord('b'):
