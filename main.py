@@ -466,8 +466,11 @@ if __name__=="__main__":
     # Plot previous annotations on image. 
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
-    # Create a window and bind the callback function to the window
-    cv2.namedWindow('image')
+    # Create a window with WINDOW_NORMAL to allow resizing
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+    # Set the window to full screen
+    cv2.setWindowProperty('image', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    # Bind the callback function to the window
     cv2.setMouseCallback('image', mouse_handler)
     cv2.imshow('image', image)
 
@@ -668,13 +671,14 @@ if __name__=="__main__":
                     message = ["Show background only.", 
                                "[Press 'a' again to leave.]",]
                 else:    
-                    myAnn.state.drawing_mode = last_drawing_mode
                     break
                 temp_image = image_original.copy()
                 cv2.imshow('image', temp_image)
                 print_on_console(message) 
                 # print_on_image(message, temp_image, myAnn) 
                 k2 = cv2.waitKey(0)
+
+            myAnn.state.drawing_mode = last_drawing_mode
             message = ["Leave background-only mode",]
             print_on_console(message)    
             image = refresh_image(image_original, annotation, myAnn)
