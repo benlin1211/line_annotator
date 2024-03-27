@@ -468,7 +468,9 @@ if __name__=="__main__":
 
     # Create a window with WINDOW_NORMAL to allow resizing
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-    # Set the window to full screen
+    # width, height = 1040, 1040  # Desired window dimensions (px)
+    # cv2.resizeWindow('image', width, height) 
+    # # Set the window to full screen
     cv2.setWindowProperty('image', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     # Bind the callback function to the window
     cv2.setMouseCallback('image', mouse_handler)
@@ -515,7 +517,7 @@ if __name__=="__main__":
 
         k = cv2.waitKey(0)
         # ====== Press 'n' to open the image selector======
-        if k == ord('/'): 
+        if k == ord('m'): 
             # threading.Thread(target=open_image_selector).start()
             # threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
             current_image_index = select_image_annotation_pair_by_index(image_set, annotation_set)
@@ -600,15 +602,16 @@ if __name__=="__main__":
                 "Eraser mode: 'e'",
                 "=============== Load and Save ===============", 
                 "Save annotation: 's'",
-                "Load another iamge: '/'",
-                "Load previous annotations: '.'",
-                "Leave without Saveing: 'esc'",
+                "Load another iamge: 'm'",
+                "Load previous annotations: 'n'",
+                "Leave without Saveing: 'q'",
                 "=============== Tools ===============", 
                 "Undo: 'u' ",
                 "Redo: 'r' ",
                 "Show all endpoints: 'p'",
-                "Decrease stride: 'left arrow key'",
-                "Increase stride: 'right arrow key'",
+                "Decrease stride: 'z'",
+                "Increase stride: 'x'",
+                
             ]
             print_on_console(message)
             # print_on_image([os.path.basename(image_path)])
@@ -634,13 +637,13 @@ if __name__=="__main__":
             # print_on_image(message, image, myAnn, font_size=0.5)
             print_on_console(message)
             # break
-        # ====== ESC key to leave without saving ======
-        elif k == 27: 
+        # ====== 'q' key to leave without saving ======
+        elif k == ord('q'): 
             print("[INFO] Leave without saving.")
             break
 
-        # ====== Decrease stride size with left arrow key ======
-        elif k == 81:  
+        # ====== Decrease stride size with z ======
+        elif k == ord('z'):  
             if myAnn.state.drawing_mode == "draw":
                 stride_draw = max(1, stride_draw - 1)
             elif myAnn.state.drawing_mode == "eraser":
@@ -649,8 +652,8 @@ if __name__=="__main__":
                       f"Eraser stride: {stride_eraser}."]
             print_on_console(message)
         
-        # ====== Increase stride size with right arrow key ======
-        elif k == 83: 
+        # ====== Increase stride size with z ======
+        elif k == ord('x'): 
             if myAnn.state.drawing_mode == "draw":
                 max_stride_draw = roi_dim // 2  # Calculate the max stride based on roi_dim
                 stride_draw = min(max_stride_draw, stride_draw + 1)
@@ -667,7 +670,7 @@ if __name__=="__main__":
             # Temporarily Disable the Mouse Callback
             myAnn.state.drawing_mode = 'idle'
             while True:
-                if k2 != ord('a'): # and k2 != 27: # ESC
+                if k2 != ord('a'): # and k2 != ord('q'):
                     message = ["Show background only.", 
                                "[Press 'a' again to leave.]",]
                 else:    
@@ -733,7 +736,7 @@ if __name__=="__main__":
         ## =================================================================================
 
         # ====== Load existinge annotation from save_path_annotation ======
-        elif k == ord('.'):
+        elif k == ord('n'):
             new_annotation_path = select_existing_annotation(save_path_annotation) # or use args.save_path if you want it configurable
             if new_annotation_path:
                 # Update the display or any internal state as necessary
