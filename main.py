@@ -757,9 +757,10 @@ if __name__=="__main__":
             if new_annotation_path:
                 # Update the display or any internal state as necessary
                 image, annotation = read_image_and_annotation(image_path, new_annotation_path)
+                # refresh annotation
+                annotation_original = annotation
                 # Plot previous annotations on image. 
                 # image = cv2.addWeighted(image, 1, annotation, 1, 0)
-                
                 image = refresh_image(image_original, annotation, myAnn)
                 print(f"Loaded annotation from {new_annotation_path}")
                 cv2.imshow('image', image)
