@@ -29,7 +29,7 @@ class Annotator():
         self.color = (255, 255, 255)  # White color
         self.thickness = 1  # Line thickness
         self.show_background = True
-        self.show_endpoint= False
+        self.show_endpoint= True
 
         # List to store lines
         self.actions = []  # Store the actions 
@@ -73,8 +73,8 @@ def parse_arguments():
     parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/', help='Root directory for annotations.')
         
     # Add stride and roi_dim arguments
-    parser.add_argument('--stride_draw', type=int, default=10, help='Stride size for draw mode adjustments.')
-    parser.add_argument('--stride_eraser', type=int, default=10, help='Stride size for erase mode adjustments.')
+    parser.add_argument('--stride_draw', type=int, default=8, help='Stride size for draw mode adjustments.')
+    parser.add_argument('--stride_eraser', type=int, default=8, help='Stride size for erase mode adjustments.')
     parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
@@ -487,6 +487,7 @@ if __name__=="__main__":
     # cv2.setWindowProperty('image', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     # Bind the callback function to the window
     cv2.setMouseCallback('image', mouse_handler)
+    image = refresh_image(image_original, annotation, myAnn)
     cv2.imshow('image', image)
 
     # Use global to make callback function sees the variable
@@ -526,6 +527,7 @@ if __name__=="__main__":
 
                 # Initial display with description
                 last_index = current_image_index
+                image = refresh_image(image_original, annotation, myAnn)
                 cv2.imshow('image', image)
 
         k = cv2.waitKey(0)
@@ -741,10 +743,10 @@ if __name__=="__main__":
                 endpoints = detect_endpoints_local(annotation, myAnn.color)
                 for (px, py) in endpoints:
                     cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle         
+                print(len(endpoints))
             else:
                 message = ["Hide all endpoints",]
                 print_on_console(message)
-            print(len(endpoints))
             cv2.imshow('image', image)
         ## =================================================================================
 
