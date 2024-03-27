@@ -52,7 +52,10 @@ def read_image_and_annotation(image_path, annotation_path):
     return image, annotation
 
 # ======================== Read image by Tkinter ========================
-def select_image_annotation_pair_by_index(image_set, annotation_set, window_size_ratio=(0.3,0.8), font=('Helvetica', 30, 'normal')):
+def select_image_annotation_pair_by_index(image_set, 
+                                          annotation_set, 
+                                          window_size_ratio=(0.3,0.8), 
+                                          font=('Helvetica', 30, 'normal')):
     
     # from tkinter import font
     # root = tk.Tk()
@@ -84,18 +87,43 @@ def select_image_annotation_pair_by_index(image_set, annotation_set, window_size
     # Variable to store the index of the selected pair
     selected_index = tk.IntVar(value=-1)
 
-    def on_select(event):
-        selection_index = listbox.curselection()[0]  # Get selected index
-        selected_index.set(selection_index)  # Set the index
-        root.destroy()  # Close the window
+    # Create a Frame to hold the Listbox and Scrollbar
+    frame = tk.Frame(root)
+    frame.pack(fill=tk.BOTH, expand=True)
 
-    # Create listbox and populate it
-    listbox = tk.Listbox(root, width=400, height=window_height, font=font)
-    for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
-        img_name = os.path.basename(image_path)
-        listbox.insert(tk.END, f"{idx}: {img_name}")
-    listbox.bind('<<ListboxSelect>>', on_select)
-    listbox.pack()
+    # Create the vertical scrollbar
+    scrollbar = tk.Scrollbar(frame, orient="vertical", width=window_width*0.05)
+
+    # Create the Listbox and configure it to use the Scrollbar
+    listbox = tk.Listbox(frame, width=400, height=window_height, font=font, yscrollcommand=scrollbar.set)
+    scrollbar.config(command=listbox.yview)
+
+    # Pack the Scrollbar to the right side of the Frame, and make it fill the Y-axis
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    # Pack the Listbox to fill the rest of the Frame
+    listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    for idx, (image_path, _) in enumerate(zip(image_set, annotation_set)):
+        listbox.insert(tk.END, f"{idx}: {os.path.basename(image_path)}")
+
+    # Set callback functions
+    def on_mouse_down(event):
+        try:
+            index = listbox.nearest(event.y)
+            listbox.selection_set(index)
+        except Exception as e:
+            print("Error on mouse down:", e)
+
+    def on_mouse_up(event):
+        try:
+            index = listbox.curselection()[0]
+            selected_index.set(index)
+            root.destroy()
+        except Exception as e:
+            print("Error on mouse up:", e)
+
+    listbox.bind('<ButtonPress-1>', on_mouse_down)
+    listbox.bind('<ButtonRelease-1>', on_mouse_up)
 
     root.mainloop()  # Start the GUI event loop
 
@@ -125,26 +153,55 @@ def select_existing_annotation(result_path, window_size_ratio=(0.3,0.8), font=('
     # Set window size and position
     root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
-    selected_path = tk.StringVar(value="")
+    # Variable to store the string of selected path
+    selected_path = tk.StringVar(value="")    
 
+    # Create a Frame to hold the Listbox and Scrollbar
+    frame = tk.Frame(root)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    # Create the vertical scrollbar
+    scrollbar = tk.Scrollbar(frame, orient="vertical", width=window_width*0.05)
+
+    # Create the Listbox and configure it to use the Scrollbar
+    listbox = tk.Listbox(frame, width=400, height=window_height, font=font, yscrollcommand=scrollbar.set)
+    scrollbar.config(command=listbox.yview)
+
+    # Pack the Scrollbar to the right side of the Frame, and make it fill the Y-axis
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    # Pack the Listbox to fill the rest of the Frame
+    listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    # Create listbox and populate it
     annotation_files = sorted(glob.glob(os.path.join(result_path, "*.bmp")))  # Adjust pattern if necessary
     if not annotation_files:  # No annotation files found
         print("No annotations found in", result_path)
         return None
 
-    def on_select(event):
-        selection_index = listbox.curselection()[0]
-        selected_path.set(annotation_files[selection_index])
-        root.destroy()
-
-    listbox = tk.Listbox(root, width=window_width, height=window_height, font=font)
     for idx, file_path in enumerate(annotation_files):
         annotation_name = os.path.basename(file_path)
         listbox.insert(tk.END, f"{idx}: {annotation_name}")
 
-    listbox.bind('<<ListboxSelect>>', on_select)
-    listbox.pack()
+    # Set callback functions
+    def on_mouse_down(event):
+        try:
+            index = listbox.nearest(event.y)  # Get the item nearest to the mouse click
+            listbox.selection_set(index)  # Highlight the item
+        except Exception as e:
+            print("Error on mouse down:", e)
 
+    def on_mouse_up(event):
+        try:
+            if listbox.curselection():  # Check if there's a selection
+                selection_index = listbox.curselection()[0]
+                selected_path.set(annotation_files[selection_index])
+            root.destroy()
+        except Exception as e:
+            print("Error on mouse up:", e)
+
+    listbox.bind('<ButtonPress-1>', on_mouse_down)
+    listbox.bind('<ButtonRelease-1>', on_mouse_up)
+    
     root.mainloop()
 
     return selected_path.get()
