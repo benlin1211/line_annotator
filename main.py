@@ -468,10 +468,23 @@ if __name__=="__main__":
 
     # Create a window with WINDOW_NORMAL to allow resizing
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-    # width, height = 1040, 1040  # Desired window dimensions (px)
-    # cv2.resizeWindow('image', width, height) 
-    # # Set the window to full screen
-    cv2.setWindowProperty('image', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    # Get the screen size
+    screen_res_x, screen_res_y = 1920, 1080  # You might need to adjust this to your screen resolution
+
+    # Calculate nearly fullscreen dimensions (e.g., screen size - 100 pixels)
+    window_width = screen_res_x 
+    window_height = screen_res_y
+
+    # Resize the window to nearly fullscreen
+    cv2.resizeWindow('image', window_width, window_height)
+
+    # Optionally, center the window on the screen
+    x_position = (screen_res_x - window_width) // 2
+    y_position = (screen_res_y - window_height) // 2
+    cv2.moveWindow('image', x_position, y_position)
+
+    # or, set the window to full screen
+    # cv2.setWindowProperty('image', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     # Bind the callback function to the window
     cv2.setMouseCallback('image', mouse_handler)
     cv2.imshow('image', image)
@@ -604,7 +617,7 @@ if __name__=="__main__":
                 "Save annotation: 's'",
                 "Load another iamge: 'm'",
                 "Load previous annotations: 'n'",
-                "Leave without Saveing: 'q'",
+                "Leave without Saveing: ESC",
                 "=============== Tools ===============", 
                 "Undo: 'u' ",
                 "Redo: 'r' ",
@@ -637,8 +650,8 @@ if __name__=="__main__":
             # print_on_image(message, image, myAnn, font_size=0.5)
             print_on_console(message)
             # break
-        # ====== 'q' key to leave without saving ======
-        elif k == ord('q'): 
+        # ====== ESC key to leave without saving ======
+        elif k == 27: 
             print("[INFO] Leave without saving.")
             break
 
@@ -670,7 +683,7 @@ if __name__=="__main__":
             # Temporarily Disable the Mouse Callback
             myAnn.state.drawing_mode = 'idle'
             while True:
-                if k2 != ord('a'): # and k2 != ord('q'):
+                if k2 != ord('a'): # and k2 != 27:
                     message = ["Show background only.", 
                                "[Press 'a' again to leave.]",]
                 else:    
