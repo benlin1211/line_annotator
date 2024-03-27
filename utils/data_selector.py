@@ -52,9 +52,34 @@ def read_image_and_annotation(image_path, annotation_path):
     return image, annotation
 
 # ======================== Read image by Tkinter ========================
-def select_image_annotation_pair_by_index(image_set, annotation_set):
+def select_image_annotation_pair_by_index(image_set, annotation_set, window_size_ratio=(0.3,0.8), font=('Helvetica', 30, 'normal')):
+    
+    # from tkinter import font
+    # root = tk.Tk()
+    # fonts_list = font.families()
+    # root.destroy()
+
+    # for font in fonts_list:
+    #     print(font)
+        
     root = tk.Tk()
     root.title('Select Image')
+
+    # Get screen width and height
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+
+    # Calculate window size as a percentage of screen size (e.g., 50% of the screen)
+    pw, ph = window_size_ratio
+    window_width = int(screen_width * pw)
+    window_height = int(screen_height * ph)
+
+    # Optionally, calculate the position of window
+    x_position = 0
+    y_position = 0
+
+    # Set window size and position
+    root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
     # Variable to store the index of the selected pair
     selected_index = tk.IntVar(value=-1)
@@ -65,7 +90,7 @@ def select_image_annotation_pair_by_index(image_set, annotation_set):
         root.destroy()  # Close the window
 
     # Create listbox and populate it
-    listbox = tk.Listbox(root, width=100, height=20)
+    listbox = tk.Listbox(root, width=400, height=window_height, font=font)
     for idx, (image_path, annotation_path) in enumerate(zip(image_set, annotation_set)):
         img_name = os.path.basename(image_path)
         listbox.insert(tk.END, f"{idx}: {img_name}")
@@ -80,9 +105,25 @@ def select_image_annotation_pair_by_index(image_set, annotation_set):
         return None  # Or handle this case as you prefer
     
 
-def select_existing_annotation(result_path):
+def select_existing_annotation(result_path, window_size_ratio=(0.3,0.8), font=('Helvetica', 30, 'normal')):
     root = tk.Tk()
     root.title('Select Existing Annotation')
+
+    # Get screen width and height
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+
+    # Calculate window size as a percentage of screen size (e.g., 50% of the screen)
+    pw, ph = window_size_ratio
+    window_width = int(screen_width * pw)
+    window_height = int(screen_height * ph)
+
+    # Optionally, calculate the position of window
+    x_position = 0
+    y_position = 0
+
+    # Set window size and position
+    root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
     selected_path = tk.StringVar(value="")
 
@@ -96,9 +137,11 @@ def select_existing_annotation(result_path):
         selected_path.set(annotation_files[selection_index])
         root.destroy()
 
-    listbox = tk.Listbox(root, width=100, height=20)
-    for file_path in annotation_files:
-        listbox.insert(tk.END, os.path.basename(file_path))
+    listbox = tk.Listbox(root, width=window_width, height=window_height, font=font)
+    for idx, file_path in enumerate(annotation_files):
+        annotation_name = os.path.basename(file_path)
+        listbox.insert(tk.END, f"{idx}: {annotation_name}")
+
     listbox.bind('<<ListboxSelect>>', on_select)
     listbox.pack()
 
