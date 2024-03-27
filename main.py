@@ -278,6 +278,7 @@ def refresh_image(image_original: np.ndarray, annotation: np.ndarray, myAnn: Ann
     image = image_original.copy() if myAnn.show_background else annotation.copy()
     image = cv2.addWeighted(image, 1, annotation, 1, 0)
     # Plot endpoint back if it is toggled.
+    print(myAnn.show_endpoint)
     if myAnn.show_endpoint:
         endpoints = detect_endpoints_local(annotation, myAnn.color)
         for (px, py) in endpoints:
@@ -757,7 +758,9 @@ if __name__=="__main__":
                 # Update the display or any internal state as necessary
                 image, annotation = read_image_and_annotation(image_path, new_annotation_path)
                 # Plot previous annotations on image. 
-                image = cv2.addWeighted(image, 1, annotation, 1, 0)
+                # image = cv2.addWeighted(image, 1, annotation, 1, 0)
+                
+                image = refresh_image(image_original, annotation, myAnn)
                 print(f"Loaded annotation from {new_annotation_path}")
                 cv2.imshow('image', image)
             else:
