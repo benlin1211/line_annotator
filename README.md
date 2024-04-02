@@ -8,7 +8,7 @@ By annotating the images, one can obtain a pixel-precision centerline position w
 ## Usages
 
 ### Annotation Tools
-**l: Line mode (default)**
+- **l: Line mode (default)**
 
 Press 'l' to enable line mode. 
 
