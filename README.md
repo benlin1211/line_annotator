@@ -4,7 +4,8 @@
 This tool is for structured line fringe center annotation. By annotating the images, one can obtain a pixel-precision centerline position with high quality.
 
 ## Usages
-- 'l': Line (default)
+**- 'l': Line (default)**
+
 Press 'l' to enable line mode. Under line mode, the cursor will automatically search and connect to the nearest endpoint within thw brush range while drawing lines. 
 
 - 'e': Eraser
