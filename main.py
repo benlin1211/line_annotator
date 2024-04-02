@@ -624,7 +624,11 @@ if __name__=="__main__":
                 "=============== Tools ===============", 
                 "Undo: 'u' ",
                 "Redo: 'r' ",
+                "=============== Tools ===============", 
                 "Show all endpoints: 'p'",
+                "Show annotation only: 'b'",
+                "Show background only: 'a'",
+                "=============== Brush ===============", 
                 "Decrease stride: 'z'",
                 "Increase stride: 'x'",
                 
@@ -649,7 +653,7 @@ if __name__=="__main__":
             cv2.imwrite(os.path.join(save_path_annotation, annotation_name), annotation)
             cv2.imwrite(os.path.join(save_path_combined, f"combined_{image_name}"), combined_image)
 
-            message = [f"[INFO] Annotation is saved at {save_path}."]
+            message = [f"[INFO] Annotation is saved at {os.path.join(save_path_annotation, annotation_name)}."]
             # print_on_image(message, image, myAnn, font_size=0.5)
             print_on_console(message)
             # break
@@ -679,7 +683,7 @@ if __name__=="__main__":
             message = [f"Drawing stride: {stride_draw}.",
                       f"Eraser stride: {stride_eraser}."]
             print_on_console(message)  
-        # ====== Show background ======
+        # ====== Show background and fixed ======
         elif k == ord('a'):
             k2 = 0
             last_drawing_mode = myAnn.state.drawing_mode
@@ -688,7 +692,9 @@ if __name__=="__main__":
             while True:
                 if k2 != ord('a'): # and k2 != 27:
                     message = ["Show background only.", 
-                               "[Press 'a' again to leave.]",]
+                               "- Scroll to zoom in/out.",
+                               "- Drag to move FOV.",
+                               "- Press 'a' again to leave.",]
                 else:    
                     break
                 temp_image = image_original.copy()
