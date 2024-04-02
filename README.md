@@ -20,11 +20,11 @@ Press key 'u' to undo last line painted.
 
 Press key 'r' to redo last line undone.
 
-**- 'z': Decrease brush size **
+**- 'z': Decrease brush size**
 
 Press key 'z' to decrease brush size of current mode by 1.
 
-**- 'x': Increase brush size **
+**- 'x': Increase brush size**
 
 Press key 'x' to increase brush size of current mode by 1.
 
@@ -48,12 +48,13 @@ Press key 'm' to load next image from {args.image_root}.
 Press key 'a' to load existing annotation from {args.save_path, "annotation"}.
 
 ## Display
-**- 'a': Display **
+**- 'a': Display**
 
 Press key 'a' to display background only. Press 'a' again to leave display mode.
 Note: Under this mode, the other keys and brush are disabled, but you can scroll to zoom-in/out, and drag to move for a better FOV of annotation.  
 
 **- 'b': Hide background**
+
 Press key 'b' to hide background. Press 'b' again to show background.
 
 **- 'p': Show all endpoints. (default)**
