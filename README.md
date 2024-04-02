@@ -7,7 +7,7 @@ By annotating the images, one can obtain a pixel-precision centerline position w
 
 ## Usages
 
-### Annotation Tools
+### 1. Annotation Tools
 **l: Line mode (default)**
 
 Press 'l' to enable line mode. 
@@ -37,7 +37,7 @@ Press key 'z' to decrease brush size of current mode by 1.
 Press key 'x' to increase brush size of current mode by 1.
 
 
-### Display
+### 2. Display
 **a: Display background only**
 
 Press key 'a' to display background only. 
@@ -62,7 +62,7 @@ Press 'p' again to show endpoints.
 
 Press key 'h' to print help on console.
 
-### Save and Leave  
+### 3. Save and Leave  
 **s: Save**
 
 Press key 's' to save the annotated result.
@@ -73,7 +73,7 @@ The results will be saved at {args.save_path, "annotation"}, {args.save_path, "i
 
 Press key esc to exit the program.
 
-### File I/O
+### 4. File I/O
 **m: Load image**
 
 Press key 'm' to load next image from {args.image_root}.
