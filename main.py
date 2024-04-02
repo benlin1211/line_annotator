@@ -532,7 +532,7 @@ if __name__=="__main__":
                 cv2.imshow('image', image)
 
         k = cv2.waitKey(0)
-        # ====== Press 'n' to open the image selector======
+        # ====== Press 'm' to open the image selector======
         if k == ord('m'): 
             # threading.Thread(target=open_image_selector).start()
             # threading.Thread(target=lambda: open_image_selector(image_set), daemon=True).start()
@@ -543,7 +543,7 @@ if __name__=="__main__":
             hints = [f"Switched to limited eraser mode."]
             print_on_console(hints)
             # print_on_image(hints, image, myAnn) 
-        # # ====== [Default] Press 'n' to toggle nearest dragging mode ======
+        # # ====== [Default] Press 'l' to toggle drawing mode ======
         elif k == ord('l'):
             myAnn.state.drawing_mode = "draw"
             hints = [f"Switched to {myAnn.state.drawing_mode} mode."]
@@ -618,8 +618,8 @@ if __name__=="__main__":
                 "Eraser mode: 'e'",
                 "=============== Load and Save ===============", 
                 "Save annotation: 's'",
-                "Load another iamge: 'm'",
-                "Load previous annotations: 'n'",
+                "Load next image: 'm'",
+                "Load existing annotations: 'n'",
                 "Leave without Saveing: ESC",
                 "=============== Tools ===============", 
                 "Undo: 'u' ",
@@ -757,7 +757,7 @@ if __name__=="__main__":
             cv2.imshow('image', image)
         ## =================================================================================
 
-        # ====== Load existinge annotation from save_path_annotation ======
+        # ====== Load existing annotation from save_path_annotation ======
         elif k == ord('n'):
             new_annotation_path = select_existing_annotation(save_path_annotation) # or use args.save_path if you want it configurable
             if new_annotation_path:
