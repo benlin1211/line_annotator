@@ -65,22 +65,6 @@ class AnnotatorState():
         self.leave_hint = False 
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
-    parser.add_argument('--save_path', type=str, default='./result/', help='Path to save the output results.')
-    parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
-    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs/0727-0933/', help='Root directory for images.')
-    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/supplements/0727-0933/UV-only/', help='Root directory for annotations.')
-        
-    # Add stride and roi_dim arguments
-    parser.add_argument('--stride_draw', type=int, default=8, help='Stride size for draw mode adjustments.')
-    parser.add_argument('--stride_eraser', type=int, default=8, help='Stride size for erase mode adjustments.')
-    parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
-    
-    args = parser.parse_args()
-    return args
-
-
 def read_data_pairs(image_set, annotation_set):
     annotation_set = sorted(glob.glob(os.path.join(annotation_root, "*.bmp")))
     sequence_numbers = []
@@ -285,6 +269,25 @@ def refresh_image(image_original: np.ndarray, annotation: np.ndarray, myAnn: Ann
             cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
     return image
 
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
+    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933_subset/', help='Root directory for images.')
+    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933_subset_UV-only/', help='Root directory for annotations.')
+    parser.add_argument('--save_path', type=str, default='./segmentataion_result/', help='Path to save the output results.')
+    parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
+
+    # Add stride and roi_dim arguments
+    parser.add_argument('--stride_draw', type=int, default=8, help='Stride size for draw mode adjustments.')
+    parser.add_argument('--stride_eraser', type=int, default=8, help='Stride size for erase mode adjustments.')
+    parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
+    
+    args = parser.parse_args()
+    return args
+
+
+
 if __name__=="__main__":
     # ============ Callback function to capture mouse events ============
     # For backgrond showing
@@ -351,7 +354,7 @@ if __name__=="__main__":
 
                 # Highlight the nearest point (n_x, n_y) with a green circle
                 # # Note: n_x and n_y are reversed
-                cv2.circle(temp_image, (n_x, n_y), radius=1, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
+                cv2.circle(temp_image, (n_x, n_y), radius=myAnn.thickness, color=(0, 255, 0), thickness=-1)  # -1 fills the circle
                 points = [(n_x, n_y)]
 
                 cv2.imshow('image', temp_image)
@@ -363,7 +366,7 @@ if __name__=="__main__":
             # Show stride range
             overlay = temp_image.copy()
             # Draw a circle
-            cv2.circle(overlay, (x, y), stride_draw, (0, 255, 255), -1)  # Drawing the circle on the overlay
+            cv2.circle(overlay, (x, y), myAnn.thickness, (0, 255, 255), -1)  # Drawing the circle on the overlay
             # Alpha value controls the transparency level (between 0 and 1)
             alpha = 0.4
             cv2.addWeighted(overlay, alpha, temp_image, 1-alpha, 0, temp_image)
@@ -666,6 +669,7 @@ if __name__=="__main__":
         elif k == ord('z'):  
             if myAnn.state.drawing_mode == "draw":
                 stride_draw = max(1, stride_draw - 1)
+                myAnn.thickness = stride_draw # update thickness
             elif myAnn.state.drawing_mode == "eraser":
                 stride_eraser = max(1, stride_eraser - 1)
             message = [f"Drawing stride: {stride_draw}.",
@@ -677,6 +681,7 @@ if __name__=="__main__":
             if myAnn.state.drawing_mode == "draw":
                 max_stride_draw = roi_dim // 2  # Calculate the max stride based on roi_dim
                 stride_draw = min(max_stride_draw, stride_draw + 1)
+                myAnn.thickness = stride_draw # update thickness
             if myAnn.state.drawing_mode == "eraser":
                 max_stride_eraser = roi_dim // 2  # Calculate the max stride based on roi_dim
                 stride_eraser = min(max_stride_eraser, stride_eraser + 1)
