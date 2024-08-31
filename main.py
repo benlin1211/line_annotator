@@ -25,9 +25,9 @@ class Action():
         # erase: center, erase_radius
 
 class Annotator():
-    def __init__(self) -> None:
+    def __init__(self, thickness) -> None:
         self.color = (255, 255, 255)  # White color
-        self.thickness = 1  # Line thickness
+        self.thickness = thickness  # Line thickness
         self.show_background = True
         self.show_endpoint= True
 
@@ -200,7 +200,7 @@ def add_semi_transparent_rectangle(image, top_left, bottom_right, color, alpha):
     return cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
 
 
-def initialize_annotator(image_path, annotation_path):
+def initialize_annotator(image_path, annotation_path, stride_draw):
 
     image = cv2.imread(image_path)
     annotation = np.zeros_like(image)
@@ -218,7 +218,7 @@ def initialize_annotator(image_path, annotation_path):
     annotation_original = annotation.copy() # Backup image for undo functionality
 
     # Create Annotator 
-    myAnn = Annotator()
+    myAnn = Annotator(stride_draw)
     
     return image, annotation, temp_image, image_original, annotation_original, myAnn
 
@@ -279,8 +279,8 @@ def parse_arguments():
     parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
 
     # Add stride and roi_dim arguments
-    parser.add_argument('--stride_draw', type=int, default=8, help='Stride size for draw mode adjustments.')
-    parser.add_argument('--stride_eraser', type=int, default=8, help='Stride size for erase mode adjustments.')
+    parser.add_argument('--stride_draw', type=int, default=5, help='Stride size for draw mode adjustments.')
+    parser.add_argument('--stride_eraser', type=int, default=5, help='Stride size for erase mode adjustments.')
     parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
@@ -461,7 +461,7 @@ if __name__=="__main__":
     last_index = current_image_index
 
     # Initialize annotator
-    image, annotation, temp_image, image_original, annotation_original, myAnn = initialize_annotator(image_path, annotation_path)
+    image, annotation, temp_image, image_original, annotation_original, myAnn = initialize_annotator(image_path, annotation_path, args.stride_draw)
     ## image: 正在畫的圖
     ## annotation: 正在畫的標註
     ## image_original: 原圖
@@ -520,7 +520,7 @@ if __name__=="__main__":
                 # image_path, annotation_path = select_image_annotation_pair_by_index(image_set, annotation_set)
                 
                 # Initialize
-                image, annotation, temp_image, image_original, annotation_original, myAnn = initialize_annotator(image_path, annotation_path)
+                image, annotation, temp_image, image_original, annotation_original, myAnn = initialize_annotator(image_path, annotation_path, args.stride_draw)
                 ## image: 正在畫的圖
                 ## annotation: 正在畫的標註
                 ## image_original: 原圖
