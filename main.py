@@ -17,18 +17,13 @@ from tkinter import simpledialog
 import argparse
 
 
-# class Action():
-#     def __init__(self, action_type: str, details: dict):
-#         self.action_type = action_type  # 'line' or 'erase'
-#         self.details = details 
-#         # line: line
-#         # erase: center, erase_radius
 class Action:
-    def __init__(self, action_type, details, color, thickness):
+    def __init__(self, action_type, details, color=None, thickness=None):
         self.action_type = action_type
         self.details = details
         self.color = color
         self.thickness = thickness
+
 
 class Annotator():
     def __init__(self, thickness) -> None:
@@ -316,8 +311,8 @@ if __name__=="__main__":
         if event == cv2.EVENT_LBUTTONDOWN:
             # Erasing by drawing a circle of the background color on annotation
             # Adjust the radius to change the eraser size
-            # action = Action('erase', { "center": (x, y), "erase_radius": eraser_radius)
-            # myAnn.actions.append(action)  # Store the line as an action
+            eraser_action = Action('erase', {"center": (x, y), "erase_radius": stride_eraser})
+            myAnn.actions.append(eraser_action)
 
             cv2.circle(annotation, (x, y), radius=stride_eraser, color=(0, 0, 0), thickness=-1)
             # Redraw the whole image
@@ -326,8 +321,8 @@ if __name__=="__main__":
 
             # Directly update the original annotation
             annotation_original = annotation.copy() # <= The reason why cannot undo lines after erase until undo is called.
-            ## Once the erase mode is used, ALL action stacks will be cleaned up.
-            # TODO: I can't come up with a better idea...
+            ## Workaround: Once the erase mode is used, ALL action stacks will be cleaned up.
+            # # TODO: I can't come up with a better idea...
             # Also clear ALL history.
             myAnn.undone_actions = [] 
             myAnn.actions = [] 
@@ -582,14 +577,19 @@ if __name__=="__main__":
                 myAnn.undone_actions.append(myAnn.actions.pop())  
                 # init 
                 image = image_original.copy() if myAnn.show_background else annotation_original.copy()  # Restore the previous state
-                # [New] Redo the remaining actions from initial annotation.
+                # Redo the remaining actions from initial annotation.
                 annotation = annotation_original.copy() 
                 for i, action in enumerate(myAnn.actions): 
+                    # Handle Redo Types (lines or erases)
                     print(f"[{i}] {action.action_type}")
                     if action.action_type == "line":
                         line = action.details["line"]        
-                        # Redraw recorded lines
                         cv2.line(annotation, line[0], line[1], action.color, thickness=action.thickness)
+                    elif action.action_type == "erase":
+                        center = action.details["center"]
+                        erase_radius = action.details["erase_radius"]
+                        cv2.circle(annotation, center, radius=erase_radius, color=(0, 0, 0), thickness=-1)
+        
                 # Redraw the annotation result on image.
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
                 # Plot endpoint back if it is toggled.
@@ -609,9 +609,15 @@ if __name__=="__main__":
                     print(f"[{i}] {action.action_type}")
                 # init 
                 image = image_original.copy() if myAnn.show_background else annotation_original.copy()  # Restore the previous state                
+                # Handle Redo Types (lines or erases)
                 if action.action_type == "line":
                     line = action.details["line"]
                     cv2.line(annotation, line[0], line[1], action.color, thickness=action.thickness)
+                elif action.action_type == "erase":
+                    center = action.details["center"]
+                    erase_radius = action.details["erase_radius"]
+                    cv2.circle(annotation, center, radius=erase_radius, color=(0, 0, 0), thickness=-1)
+            
                 # Redraw the annotation result on image.
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
