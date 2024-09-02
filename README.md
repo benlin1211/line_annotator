@@ -5,6 +5,10 @@ This tool is for structured line fringe center annotation.
 
 By annotating the images, one can obtain a pixel-precision centerline position with high quality.
 
+## TODO:
+- Fix bug that the drawn line width will accidentally change when pressing u after pressing z/x.
+    - Workaround: press e after pressing z/x.
+
 ## Usages
 
 ### 1. Annotation Tools

@@ -17,12 +17,18 @@ from tkinter import simpledialog
 import argparse
 
 
-class Action():
-    def __init__(self, action_type: str, details: dict):
-        self.action_type = action_type  # 'line' or 'erase'
-        self.details = details 
-        # line: line
-        # erase: center, erase_radius
+# class Action():
+#     def __init__(self, action_type: str, details: dict):
+#         self.action_type = action_type  # 'line' or 'erase'
+#         self.details = details 
+#         # line: line
+#         # erase: center, erase_radius
+class Action:
+    def __init__(self, action_type, details, color, thickness):
+        self.action_type = action_type
+        self.details = details
+        self.color = color
+        self.thickness = thickness
 
 class Annotator():
     def __init__(self, thickness) -> None:
@@ -273,14 +279,14 @@ def refresh_image(image_original: np.ndarray, annotation: np.ndarray, myAnn: Ann
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
-    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933_subset/', help='Root directory for images.')
-    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933_subset_UV-only/', help='Root directory for annotations.')
-    parser.add_argument('--save_path', type=str, default='./segmentataion_result/', help='Path to save the output results.')
+    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0949/', help='Root directory for images.')
+    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0949_UV-only/', help='Root directory for annotations.')
+    parser.add_argument('--save_path', type=str, default='./segment_result_0949/', help='Path to save the output results.')
     parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
 
     # Add stride and roi_dim arguments
-    parser.add_argument('--stride_draw', type=int, default=5, help='Stride size for draw mode adjustments.')
-    parser.add_argument('--stride_eraser', type=int, default=5, help='Stride size for erase mode adjustments.')
+    parser.add_argument('--stride_draw', type=int, default=3, help='Stride size for draw mode adjustments.')
+    parser.add_argument('--stride_eraser', type=int, default=7, help='Stride size for erase mode adjustments.')
     parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
     
     args = parser.parse_args()
@@ -347,7 +353,7 @@ if __name__=="__main__":
                 # Show roi range.
                 roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
                 roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
-                temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
+                # temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
 
                 print(f"\r[INFO] Nearest point triggered: {n_x},{n_y}")
                 cv2.line(temp_image, (n_x, n_y), (x, y), myAnn.color, thickness=myAnn.thickness)
@@ -379,7 +385,7 @@ if __name__=="__main__":
                 # Show roi range.
                 roi_top_left = (max(x - roi_dim // 2, 0), max(y - roi_dim // 2, 0))
                 roi_bottom_right = (min(x + roi_dim // 2, image.shape[1]), min(y + roi_dim // 2, image.shape[0]))
-                temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
+                # temp_image = add_semi_transparent_rectangle(temp_image, roi_top_left, roi_bottom_right, (0, 255, 0), 0.3)
 
 
                 # Show all endpoints in rectangle with red color when dragging
@@ -409,7 +415,12 @@ if __name__=="__main__":
             n_x, n_y = find_nearest_point_on_map_within_range(roi_dim, local_endpoints, (x, y), image.shape[:2], stride_draw) 
             
             points.append((n_x, n_y))  # Add end point
-            action = Action('line', {'line':(points[0], points[1])})
+            action = Action(
+                action_type="line",
+                details={"line": (points[0], points[1])},
+                color=myAnn.color, # unused
+                thickness=myAnn.thickness
+            )
             myAnn.actions.append(action)  # Store the line as an action
             # print(f"len of action stack: {len(myAnn.actions)}")
 
@@ -578,7 +589,7 @@ if __name__=="__main__":
                     if action.action_type == "line":
                         line = action.details["line"]        
                         # Redraw recorded lines
-                        cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
+                        cv2.line(annotation, line[0], line[1], action.color, thickness=action.thickness)
                 # Redraw the annotation result on image.
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
                 # Plot endpoint back if it is toggled.
@@ -600,7 +611,7 @@ if __name__=="__main__":
                 image = image_original.copy() if myAnn.show_background else annotation_original.copy()  # Restore the previous state                
                 if action.action_type == "line":
                     line = action.details["line"]
-                    cv2.line(annotation, line[0], line[1], myAnn.color, thickness=myAnn.thickness)
+                    cv2.line(annotation, line[0], line[1], action.color, thickness=action.thickness)
                 # Redraw the annotation result on image.
                 image = cv2.addWeighted(image, 1, annotation, 1, 0)
 
@@ -657,6 +668,9 @@ if __name__=="__main__":
             cv2.imwrite(os.path.join(save_path_combined, f"combined_{image_name}"), combined_image)
 
             message = [f"[INFO] Annotation is saved at {os.path.join(save_path_annotation, annotation_name)}."]
+            # message.append(f"[INFO] Image is saved at {os.path.join(save_path_origin, image_name)}.")
+            # message.append(f"[INFO] Combined is saved at {os.path.join(save_path_combined, f"combined_{image_name}")}.")
+            
             # print_on_image(message, image, myAnn, font_size=0.5)
             print_on_console(message)
             # break
