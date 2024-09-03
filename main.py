@@ -17,6 +17,23 @@ from tkinter import simpledialog
 import argparse
 
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
+    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933', help='Root directory for images.')
+    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933_UV-only/', help='Root directory for annotations.')
+    parser.add_argument('--save_path', type=str, default='./segment_result_0927/', help='Path to save the output results.')
+    parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
+
+    # Add stride and roi_dim arguments
+    parser.add_argument('--stride_draw', type=int, default=3, help='Stride size for draw mode adjustments.')
+    parser.add_argument('--stride_eraser', type=int, default=7, help='Stride size for erase mode adjustments.')
+    parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
+    
+    args = parser.parse_args()
+    return args
+
+
+
 class Action:
     def __init__(self, action_type, details, color=None, thickness=None):
         self.action_type = action_type
@@ -269,23 +286,6 @@ def refresh_image(image_original: np.ndarray, annotation: np.ndarray, myAnn: Ann
         for (px, py) in endpoints:
             cv2.circle(image, (px, py), radius=2, color=(0, 0, 255), thickness=-1)  # -1 fills the circle
     return image
-
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
-    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0949/', help='Root directory for images.')
-    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0949_UV-only/', help='Root directory for annotations.')
-    parser.add_argument('--save_path', type=str, default='./segment_result_0949/', help='Path to save the output results.')
-    parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
-
-    # Add stride and roi_dim arguments
-    parser.add_argument('--stride_draw', type=int, default=3, help='Stride size for draw mode adjustments.')
-    parser.add_argument('--stride_eraser', type=int, default=7, help='Stride size for erase mode adjustments.')
-    parser.add_argument('--roi_dim', type=int, default=201, help='ROI size for sub-image extraction.')
-    
-    args = parser.parse_args()
-    return args
 
 
 
