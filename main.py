@@ -3,6 +3,7 @@ import numpy as np
 import os
 import time
 from scipy.ndimage import convolve
+from pathlib import Path
 import glob, re
 # import tkinter as tk
 # from tkinter import ttk
@@ -83,24 +84,59 @@ class AnnotatorState():
         self.leave_hint = False 
 
 
-def read_data_pairs(image_set, annotation_set):
-    annotation_set = sorted(glob.glob(os.path.join(annotation_root, "*.bmp")))
+# def read_data_pairs(image_root, annotation_root):
+#     annotation_set = sorted(glob.glob(os.path.join(annotation_root, "*.bmp")))
+#     sequence_numbers = []
+
+#     # Read annotation first.
+#     for a in annotation_set:
+#         number = os.path.basename(a).split("-")[-2]
+#         sequence_numbers.append(number)
+
+#     pattern = re.compile(r"-img0[0-2]\.bmp$")
+#      # Read image referring to annotation.
+#     image_set = sorted([name for name in glob.glob(os.path.join(image_root, "*.bmp")) \
+#                         if (pattern.search(name) and os.path.basename(name).split("-")[-2] in sequence_numbers)])
+#     # for p in image_set:
+#     #     if  os.path.basename(p).split("-")[-2] not in sequence_numbers:
+#     #         print(p)
+#     assert len(image_set) == len(annotation_set), \
+#         f"Number of image ({len(image_set)}) and annotation ({len(annotation_set)}) are not identical"
+    
+#     return image_set, annotation_set
+
+
+def read_data_pairs(image_root, annotation_root):
+    # Convert to Path objects
+    image_root = Path(image_root)
+    annotation_root = Path(annotation_root)
+
+    # Get all annotations and sort them
+    annotation_set = sorted(annotation_root.glob("*.bmp"))
     sequence_numbers = []
 
-    # Read annotation first.
-    for a in annotation_set:
-        number = os.path.basename(a).split("-")[-2]
+    # Read annotation first
+    for annotation in annotation_set:
+        number = annotation.stem.split("-")[-2]  # Use stem to get filename without suffix
         sequence_numbers.append(number)
 
+    # Compile the pattern to match image files
     pattern = re.compile(r"-img0[0-2]\.bmp$")
-     # Read image referring to annotation.
-    image_set = sorted([name for name in glob.glob(os.path.join(image_root, "*.bmp")) \
-                        if (pattern.search(name) and os.path.basename(name).split("-")[-2] in sequence_numbers)])
-    # for p in image_set:
-    #     if  os.path.basename(p).split("-")[-2] not in sequence_numbers:
-    #         print(p)
+
+    # Read images referring to annotations
+    image_set = sorted(
+        [
+            image for image in image_root.glob("*.bmp")
+            if pattern.search(image.name) and image.stem.split("-")[-2] in sequence_numbers
+        ]
+    )
+    # Debug: Check for mismatched sequence numbers (optional)
+    for image_path in image_set:
+        if image_path.stem.split("-")[-2] not in sequence_numbers:
+            print(image_path)
+
     assert len(image_set) == len(annotation_set), \
-        f"Number of image ({len(image_set)}) and annotation ({len(annotation_set)}) are not identical"
+        f"Number of images ({len(image_set)}) and annotations ({len(annotation_set)}) are not identical"
     
     return image_set, annotation_set
 
@@ -219,6 +255,8 @@ def add_semi_transparent_rectangle(image, top_left, bottom_right, color, alpha):
 
 
 def initialize_annotator(image_path, annotation_path, stride_draw):
+    image_path = str(image_path) 
+    annotation_path = str(annotation_path)
 
     image = cv2.imread(image_path)
     annotation = np.zeros_like(image)
@@ -465,6 +503,7 @@ if __name__=="__main__":
     image_path = image_set[current_image_index]
     annotation_path = annotation_set[current_image_index]
     last_index = current_image_index
+    print(image_path, annotation_path)
 
     # Initialize annotator
     image, annotation, temp_image, image_original, annotation_original, myAnn = initialize_annotator(image_path, annotation_path, args.stride_draw)
