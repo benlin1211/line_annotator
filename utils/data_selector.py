@@ -37,6 +37,8 @@ def run_selector_app(image_list):
 # ======================== Read Image by given path ========================
 def read_image_and_annotation(image_path, annotation_path):
 
+    image_path = str(image_path)
+    annotation_path = str(annotation_path)
     image = cv2.imread(image_path)
 
     # Load previous annotations

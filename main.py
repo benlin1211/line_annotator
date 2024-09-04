@@ -18,11 +18,15 @@ from tkinter import simpledialog
 import argparse
 
 
+# /home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933
+# /home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933_UV-only
+# ./segment_result_0933
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Image and Annotation Loader with Custom Save Path.')
-    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933', help='Root directory for images.')
-    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0933_UV-only/', help='Root directory for annotations.')
-    parser.add_argument('--save_path', type=str, default='./segment_result_0927/', help='Path to save the output results.')
+    parser.add_argument('--image_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0949-2', help='Root directory for images.')
+    parser.add_argument('--annotation_root', type=str, default='/home/pywu/Downloads/zhong/dataset/teeth_qisda/imgs_test_dummy/0727-0949-2_UV-only/', help='Root directory for annotations.')
+    parser.add_argument('--save_path', type=str, default='./segment_result_0949-2/', help='Path to save the output results.')
     parser.add_argument('--demo_path', type=str, default='./demo/', help='Path to save the demo.')
 
     # Add stride and roi_dim arguments
