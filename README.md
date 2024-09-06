@@ -20,9 +20,7 @@ python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0
 ## Usages
 ![settings](https://raw.githubusercontent.com/benlin1211/line_annotator/main/images/setting.jpg)
 
-## MUST-READ
-
-這些線有一些特性：
+## MUST-READ （這些線有一些特性）
 
 **1. [重要] 鄰近的間隔距離幾乎相同，並且大致平行**
 
