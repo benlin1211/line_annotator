@@ -18,7 +18,7 @@ python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0
     - Workaround: press e after pressing z/x.
 
 ## Usages
-![settings](https://github.com/benlin1211/line_annotator/images/setting.jpg)
+![settings](https://raw.githubusercontent.com/benlin1211/line_annotator/main/images/setting.jpg)
 
 ### 1. Annotation Tools
 **l: Line mode (default)**
