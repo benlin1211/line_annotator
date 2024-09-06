@@ -35,6 +35,9 @@ python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0
 應該都要連起來，
 不同牙齒表面的線則要斷掉，
 不要讓他們侵門踏戶。
+其他像是泡泡上、陰影的線，
+除非是幾乎看不到線的，
+否則請盡量讓他們連起來
 
 **3. 我覺得應該用 default 的筆刷寬度就好了。**
 
