@@ -18,6 +18,8 @@ python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0
 
 ## Usages
 
+![settings](http://images/setting.jpg)
+
 ### 1. Annotation Tools
 **l: Line mode (default)**
 
