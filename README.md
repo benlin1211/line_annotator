@@ -5,12 +5,11 @@ This tool is for structured line fringe center annotation.
 
 By annotating the images, one can obtain a pixel-precision centerline position with high quality.
 
-'''
+```
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933_UV-only/ --save_path=./segment_result_0933 
 
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1 --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1_UV-only/ --save_path=./segment_result_0949-1
-
-'''
+```
 
 ## TODO:
 - Fix bug that the drawn line width will accidentally change when pressing u after pressing z/x.
