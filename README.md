@@ -6,6 +6,8 @@ This tool is for structured line fringe center annotation.
 By annotating the images, one can obtain a pixel-precision centerline position with high quality.
 
 ```
+python main.py
+
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933_UV-only/ --save_path=./segment_result_0933 
 
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1 --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1_UV-only/ --save_path=./segment_result_0949-1
@@ -16,8 +18,7 @@ python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0
     - Workaround: press e after pressing z/x.
 
 ## Usages
-
-![settings](http://images/setting.jpg)
+![settings]([http://images/](https://github.com/benlin1211/line_annotator/images/setting.jpg))
 
 ### 1. Annotation Tools
 **l: Line mode (default)**
