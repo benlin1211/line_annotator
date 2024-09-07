@@ -11,6 +11,9 @@ python main.py
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933_UV-only/ --save_path=./segment_result_0933 
 
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1 --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1_UV-only/ --save_path=./segment_result_0949-1
+
+python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/Albert/0727-0933-rand/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933-rand_UV-only/ --save_path=./segment_result_0933-rand
+
 ```
 
 ## TODO:
