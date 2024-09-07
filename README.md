@@ -39,6 +39,9 @@ python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/Albert/072
 - 除非真的是很粗的線再調大。
 - 或是有些線看起來比較暗比較窄的，希望可以調小筆刷去標~
 
+**4. 備註**
+- 請大約標記7-10張之後傳給我檢查一次
+_____________________________________
 ### 1. Annotation Tools
 **l: Line mode (default)**
 
