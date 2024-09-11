@@ -1,5 +1,7 @@
 # Welcome to line annotator!
 
+![screenshot](https://raw.githubusercontent.com/benlin1211/line_annotator/main/images/screenshot.png)
+
 ## Description
 This tool is for structured line fringe center annotation. 
 
