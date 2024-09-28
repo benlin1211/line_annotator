@@ -10,11 +10,17 @@ By annotating the images, one can obtain a pixel-precision centerline position w
 ```
 python main.py
 
+# Set 0727-0933
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/0727-0933_UV-only/ --save_path=./segment_result_0933 
 
+# Set 0727-0949-1
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1 --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0727-0949-1_UV-only/ --save_path=./segment_result_0949-1
 
+# Set 0727-0933-rand
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/Albert/0727-0933-rand/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/Albert/0727-0933-rand_UV-only/ --save_path=./segment_result_0933-rand
+
+# Set 0727-0933-rand-2
+python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/Other/0727-0933-rand-2/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/Hsu/0727-0933-rand-2_UV-only/ --save_path=./segment_result_0933-rand-2
 ```
 
 ## TODO:
