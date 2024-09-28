@@ -20,7 +20,7 @@ python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/WangJung/0
 python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/Albert/0727-0933-rand/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/Albert/0727-0933-rand_UV-only/ --save_path=./segment_result_0933-rand
 
 # Set 0727-0933-rand-2
-python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/Other/0727-0933-rand-2/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/Hsu/0727-0933-rand-2_UV-only/ --save_path=./segment_result_0933-rand-2
+python main.py --image_root=../../dataset/teeth_qisda/imgs_test_dummy/Hsu/0727-0933-rand-2/ --annotation_root=../../dataset/teeth_qisda/imgs_test_dummy/Hsu/0727-0933-rand-2_UV-only/ --save_path=./segment_result_0933-rand-2
 ```
 
 ## TODO:
